@@ -34,6 +34,7 @@ namespace TowerSim3VR
         Camera leftEye, rightEye;
         RenderTexture leftTex, rightTex;
         float eyeNear, eyeFar;
+        float appliedZoom = 1f;
         readonly MonitorMirror monitor = new MonitorMirror();
 
         Vector3 zeroPosition;
@@ -160,6 +161,7 @@ namespace TowerSim3VR
             if (running)
             {
                 UpdateSticks();
+                UpdateZoom();
                 UpdateScreen();
                 GraphicsOverrides.Enforce();
                 FramePacing.Enforce();
@@ -329,7 +331,11 @@ namespace TowerSim3VR
         {
             cam.nearClipPlane = eyeNear;
             cam.farClipPlane = eyeFar;
-            cam.projectionMatrix = system.GetProjectionMatrix(eye, eyeNear, eyeFar).ToMatrix4x4();
+            var projection = system.GetProjectionMatrix(eye, eyeNear, eyeFar).ToMatrix4x4();
+            // Binocular zoom (VrController.Hands.cs): scaling x and y magnifies about each eye's own centre.
+            projection.m00 *= zoom;
+            projection.m11 *= zoom;
+            cam.projectionMatrix = projection;
         }
 
         void DestroyEyes()
@@ -344,8 +350,9 @@ namespace TowerSim3VR
         // Keep the eyes' settings in step with the game camera, which the game changes (views, zoom levels).
         void SyncEyes()
         {
-            if (!Mathf.Approximately(source.nearClipPlane, eyeNear) || !Mathf.Approximately(source.farClipPlane, eyeFar))
+            if (!Mathf.Approximately(source.nearClipPlane, eyeNear) || !Mathf.Approximately(source.farClipPlane, eyeFar) || zoom != appliedZoom)
             {
+                appliedZoom = zoom;
                 eyeNear = source.nearClipPlane;
                 eyeFar = source.farClipPlane;
                 ApplyProjection(leftEye, EVREye.Eye_Left);

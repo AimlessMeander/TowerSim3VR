@@ -1,21 +1,61 @@
-﻿# TowerSim3VR
+# TowerSim3VR
 
 An unofficial VR mod for [Tower! Simulator 3](https://store.steampowered.com/app/2176130) (Unity 2022.3,
-Mono, HDRP, Direct3D 11), built as a [BepInEx](https://github.com/BepInEx/BepInEx) 5 plugin.
-
-Rendering uses two ordinary HDRP cameras, one per eye, rendered to textures and submitted to SteamVR
-(the NuclearesVR approach). They hang off a head rig that follows the game camera plus the headset pose; the
-game camera itself is never moved.
-
-HDRP's native XR path was tried first (starting the OpenVR XR display that an earlier UUVR install left in
-`Tower! Simulator 3_Data/UnitySubsystems`) and does not work: the game was built without XR, so its shaders lack
-the stereo variants. Single-pass drew only the left eye and scrambled instanced scenery; multi-pass skips terrain.
-
-While VR runs, the game's FSR3 upscaler is forced off in memory (it is not XR aware). The intro video is skipped.
+Mono, HDRP, Direct3D 11), built as a [BepInEx](https://github.com/BepInEx/BepInEx) 5 plugin in the style of
+NuclearesVR. Tested on a Quest 3 over Steam Link / SteamVR with an RTX 4090 (about 85-90 fps at 90 Hz).
 
 ## Status
 
-Step 1, proof of concept: two-camera rendering, not yet tested in the headset.
+Working and in use:
+
+- Stereo rendering, 6DoF head tracking, recentring. VR starts by itself when an airport has loaded and SteamVR is
+  running, and stops when you leave the airport.
+- Motion controllers with laser pointers: the radar screens, strip board, comms panel and aircraft in the world
+  all take clicks. Menus and pop-ups show on a floating virtual screen.
+- Stick movement over the whole airport, smooth turning, binocular zoom when looking at an aircraft.
+- Fixes a game bug that left the radio voice silent for a whole session (see below). The intro video is skipped.
+
+Known limits: the tower cab and its monitors vanish when you move outside the tower (the game hides the monitors
+beyond 10 m, and the cab is modelled to be seen from inside).
+
+## Controls (Quest Touch defaults, remappable in SteamVR's controller bindings)
+
+| Control | What |
+| --- | --- |
+| Trigger | Left click. The hand that last pulled its trigger has the laser; the other shows a small ball. |
+| Left stick | Move level, where you look. Click in for fast travel. |
+| Right stick | Left/right turns. Up/down: move up and down; zooms a radar screen while pointing at it; binocular zoom while A is held. |
+| X (hold) | Push to talk (the game's push-to-talk key) |
+| A (hold) | Look at the airplane (the game's look key) |
+| Y | Menu (Escape) |
+| B | Show / hide the 2D screen (the game's 2D windows) |
+| Right stick click | Desk view (F1) |
+| Both triggers for 2 s | Recentre |
+
+Keyboard: Ctrl+Shift+V starts / stops VR, End recentres, Ctrl+Shift+F flips the eye images, Ctrl+Shift+C logs the
+cameras. Settings: `<game>/BepInEx/config/com.mjh.towersim3vr.cfg`. `VrMode`: Auto (default, only if SteamVR is
+already running), Always (also launches SteamVR), Never (Ctrl+Shift+V only).
+
+## How it works
+
+- **Rendering** (`Vr/VrController.cs`): two ordinary HDRP cameras, one per eye, render to textures submitted to
+  SteamVR. They hang off a body/head rig at the game camera's pose plus the headset pose; the game camera itself is
+  never moved. HDRP's native XR path was tried first (the OpenVR XR plugin an earlier UUVR install left in
+  `UnitySubsystems`) and does not work: the game was built without XR, so its shaders lack the stereo variants.
+- **Performance**: the monitor shows the left eye instead of the game rendering its camera a third time (HDRP
+  `customRender`); FSR3, the game's frame limiter and vsync are lifted while in VR; motion blur is off on the eyes.
+- **Pointing** (`Vr/VrController.Hands.cs`, `Vr/VrKeys.cs`): the game does every 3D click from
+  `Camera.main.ScreenPointToRay(Input.mousePosition)`, so the laser's target, projected into the game camera, is
+  reported as the mouse position, and the controllers' buttons as keys and mouse buttons (Harmony patches on the
+  legacy `Input`). Lasers stop on world-space canvases (the desk displays have no colliders). For Unity's UI event
+  system the game camera is briefly put on the laser, because `GraphicRaycaster` drops pointers outside its view.
+- **Drawing on top**: the lasers and the virtual screen use `UI/Default` on the last sorting layer; the desk
+  canvases are on a later sorting layer than Default and otherwise draw over them. HDRP skips queue 4000 and up.
+- **Virtual screen** (`Vr/VrController.Screen.cs`): `ScreenCapture` of the monitor onto a quad, shown while a menu or
+  pop-up is open (or with B); the monitor draws black behind the 2D interface meanwhile.
+- **Radio fix** (`RadioStartFix.cs`): unmodded, the first radio call can go out before the separate TTS program has
+  connected; the speaking thread then waits forever for its audio and the voice is silent all session. Calls are
+  held until the TTS program reports ready. `RadioDiagnostics.cs` logs the voice lock state.
 
 ## Build and install
 
@@ -24,26 +64,8 @@ powershell -File scripts/setup-dependencies.ps1     # once: fills lib/ from your
 dotnet build src/TowerSim3VR/TowerSim3VR.csproj      # also deploys into <game>/BepInEx/plugins
 ```
 
-BepInEx 5.4.23.5 is installed in the game folder. Logs: `<game>/BepInEx/LogOutput.log`; Unity's own log
-(the OpenVR plugin writes `[OpenVR]` lines there):
-`%USERPROFILE%\AppData\LocalLow\FeelThere Inc_\Tower! Simulator 3\Player.log`.
-`reference/` (gitignored) holds ilspycmd decompiles of the game and HDRP assemblies. The game's own code is
-obfuscated.
-
-## Starting and stopping
-
-VR starts by itself once an airport has fully loaded, and stops 1.5 s after you leave it, so menus stay an
-ordinary desktop window (as in NuclearesVR). `VrMode`: Auto (default) starts only if SteamVR is already running,
-so monitor play never launches SteamVR; Always also launches SteamVR; Never leaves it to Ctrl+Shift+V.
-Shutdown stops submitting, shuts OpenVR down, then frees the eye textures (freeing them earlier can crash the driver).
-
-## Keys
-
-| Key | What |
-| --- | --- |
-| Ctrl+Shift+V | Start / stop VR |
-| End | Recenter |
-| Ctrl+Shift+F | Flip the eye images vertically (if the view is upside down) |
-| Ctrl+Shift+C | Log all cameras (diagnostics) |
-
-Settings: `<game>/BepInEx/config/com.mjh.towersim3vr.cfg` (created on first run).
+BepInEx 5.4.23.5 is installed in the game folder (`enabled` in `doorstop_config.ini` turns it off). Logs:
+`<game>/BepInEx/LogOutput.log` and `%USERPROFILE%\AppData\LocalLow\FeelThere Inc_\Tower! Simulator 3\Player.log`.
+`reference/` (gitignored) holds ilspycmd decompiles of the game and HDRP assemblies. The game's code is obfuscated,
+so patches that name obfuscated members (`RadioStartFix`, `SkipIntro`'s timer) may need updating after a game
+update; each patch class is applied separately and a failure is logged without stopping the rest.

@@ -252,8 +252,54 @@ namespace TowerSim3VR
                 recentredThisHold = false;
             }
 
-            // Right stick up/down zooms a radar screen while the laser is on it (the mouse wheel).
-            VrKeys.Scroll = pointingAtDesk && Mathf.Abs(turnStick.y) > StickDeadzone ? turnStick.y * 0.05f : 0f;
+            // Right stick up/down zooms a radar screen while the laser is on it (the mouse wheel); while A is held
+            // (looking at the airplane) it is the binocular zoom instead.
+            VrKeys.Scroll = !buttonA && pointingAtDesk && Mathf.Abs(turnStick.y) > StickDeadzone ? turnStick.y * 0.05f : 0f;
+        }
+
+        // ---- binocular zoom while looking at the airplane ----
+        // On a monitor the mouse wheel narrows the camera's field of view, which the headset ignores (the eyes
+        // have its projection). So both eyes' projections are magnified instead, like binoculars, while A is held;
+        // letting go of A returns to 1x (the game itself puts the view back where it was). LOD bias is raised by the
+        // same factor so a far-away airplane is drawn in full detail when magnified.
+        float zoom = 1f;
+        float zoomTarget = 1f;
+        float savedLodBias = -1f;
+
+        void UpdateZoom()
+        {
+            float dt = Time.unscaledDeltaTime;
+            if (buttonA && !screenVisible)
+            {
+                var push = Curve(turnStick.y);
+                if (push != 0f) zoomTarget *= Mathf.Pow(2f, push * Plugin.ZoomSpeed.Value * dt);
+                zoomTarget = Mathf.Clamp(zoomTarget, 1f, Mathf.Max(1f, Plugin.MaxZoom.Value));
+            }
+            else
+            {
+                zoomTarget = 1f;
+            }
+            // Ease towards the target in log space, quicker on the way back out.
+            float rate = zoomTarget < zoom ? 12f : 8f;
+            zoom = Mathf.Exp(Mathf.Lerp(Mathf.Log(zoom), Mathf.Log(zoomTarget), 1f - Mathf.Exp(-rate * dt)));
+            if (Mathf.Abs(zoom - zoomTarget) < 0.001f) zoom = zoomTarget;
+
+            if (zoom > 1f)
+            {
+                if (savedLodBias < 0f) savedLodBias = QualitySettings.lodBias;
+                QualitySettings.lodBias = savedLodBias * zoom;
+            }
+            else
+            {
+                RestoreZoom();
+            }
+        }
+
+        void RestoreZoom()
+        {
+            zoom = zoomTarget = 1f;
+            if (savedLodBias >= 0f) QualitySettings.lodBias = savedLodBias;
+            savedLodBias = -1f;
         }
 
         // In Update: the sticks move the game's own camera target, which the game then glides to.
@@ -265,7 +311,8 @@ namespace TowerSim3VR
 
             float dt = Time.unscaledDeltaTime;
             float speed = Plugin.MoveSpeed.Value * (leftHand.StickClick ? Plugin.FastMoveMultiplier.Value : 1f);
-            var stick = new Vector3(Curve(moveStick.x), pointingAtDesk ? 0f : Curve(turnStick.y), Curve(moveStick.y));
+            // Right stick up/down is the zoom while A is held, and a radar screen's zoom while pointing at one.
+            var stick = new Vector3(Curve(moveStick.x), pointingAtDesk || buttonA ? 0f : Curve(turnStick.y), Curve(moveStick.y));
             if (stick != Vector3.zero)
             {
                 // Level along where the head faces; right stick up/down is straight up and down.
@@ -392,6 +439,16 @@ namespace TowerSim3VR
             laser.transform.SetPositionAndRotation(hand.Position, hand.Rotation);
             var beam = laser.transform.GetChild(0);
             var dot = laser.transform.GetChild(1);
+
+            // Only the active hand has a laser; the other is a small ball at the controller, to show where it is.
+            if (beam.gameObject.activeSelf != active) beam.gameObject.SetActive(active);
+            if (!active)
+            {
+                dot.localPosition = Vector3.zero;
+                dot.localScale = Vector3.one * 0.03f;
+                dot.GetComponent<MeshRenderer>().sharedMaterial = dotIdle;
+                return;
+            }
             beam.localPosition = new Vector3(0f, 0f, length * 0.5f);
             beam.localScale = new Vector3(0.003f, 0.003f, length);
             dot.localPosition = new Vector3(0f, 0f, length);
@@ -458,6 +515,8 @@ namespace TowerSim3VR
             inputReady = false;
             leftHand = rightHand = default;
             screenToggled = false;
+            buttonA = false;
+            RestoreZoom();
         }
     }
 }
