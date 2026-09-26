@@ -30,9 +30,21 @@ namespace TowerSim3VR
             source = null;
         }
 
+        /// <summary>False while the virtual screen shows: black behind the 2D interface, so its capture doesn't contain itself.</summary>
+        internal bool ShowEye = true;
+
         void Render(ScriptableRenderContext context, HDCamera hdCamera)
         {
             if (source == null) return;
+            if (!ShowEye)
+            {
+                var clear = CommandBufferPool.Get("TowerSim3VR monitor");
+                clear.SetRenderTarget(BuiltinRenderTextureType.CameraTarget);
+                clear.ClearRenderTarget(true, true, Color.black);
+                context.ExecuteCommandBuffer(clear);
+                CommandBufferPool.Release(clear);
+                return;
+            }
             // Crop the (roughly square) eye image to the window's aspect ratio rather than stretching it.
             float screenAspect = (float)Screen.width / Mathf.Max(1, Screen.height);
             float eyeAspect = (float)source.width / source.height;

@@ -17,7 +17,7 @@ namespace TowerSim3VR
     //
     // The eye cameras hang off a head rig of their own, placed each frame at the game camera's pose
     // plus the headset pose, so the game camera itself (controls, picking) is never moved.
-    public class VrController : MonoBehaviour
+    public partial class VrController : MonoBehaviour
     {
         static ManualLogSource Log => Plugin.Log;
 
@@ -26,7 +26,10 @@ namespace TowerSim3VR
         readonly TrackedDevicePose_t[] renderPoses = new TrackedDevicePose_t[OpenVR.k_unMaxTrackedDeviceCount];
         readonly TrackedDevicePose_t[] gamePoses = new TrackedDevicePose_t[0];
 
-        Transform head;
+        // body: the game camera's pose (level unless YawOnly is off); head: the headset relative to it.
+        Transform body, head;
+        int vrLayer = -1;
+        const ETrackingUniverseOrigin TrackingSpace = ETrackingUniverseOrigin.TrackingUniverseSeated;
         Camera source;
         Camera leftEye, rightEye;
         RenderTexture leftTex, rightTex;
@@ -155,6 +158,8 @@ namespace TowerSim3VR
             }
             if (running)
             {
+                UpdateSticks();
+                UpdateScreen();
                 GraphicsOverrides.Enforce();
                 FramePacing.Enforce();
                 FramePacing.LogStats();
@@ -172,7 +177,7 @@ namespace TowerSim3VR
                 system = null;
                 return;
             }
-            OpenVR.Compositor.SetTrackingSpace(ETrackingUniverseOrigin.TrackingUniverseSeated);
+            OpenVR.Compositor.SetTrackingSpace(TrackingSpace);
 
             uint width = 0, height = 0;
             system.GetRecommendedRenderTargetSize(ref width, ref height);
@@ -181,9 +186,13 @@ namespace TowerSim3VR
             leftTex = CreateEyeTexture((int)width, (int)height, "Left");
             rightTex = CreateEyeTexture((int)width, (int)height, "Right");
 
-            var rig = new GameObject("TowerSim3VR_Head");
+            var rig = new GameObject("TowerSim3VR_Body");
             DontDestroyOnLoad(rig);
-            head = rig.transform;
+            body = rig.transform;
+            head = new GameObject("TowerSim3VR_Head").transform;
+            head.SetParent(body, false);
+            InitInput();
+            DetectUiInput();
 
             running = true;
             needsRecenter = true;
@@ -212,9 +221,11 @@ namespace TowerSim3VR
             if (!running) return;
             running = false;
             LevelMovement.Active = false;
+            ReleaseInput();
             DestroyEyes();
-            if (head != null) Destroy(head.gameObject);
-            head = null;
+            DestroyScreen();
+            if (body != null) Destroy(body.gameObject); // the head, eyes, lasers and screen are under it
+            body = head = null;
             GraphicsOverrides.Restore();
             FramePacing.Restore();
             if (immediate)
@@ -261,6 +272,11 @@ namespace TowerSim3VR
         {
             DestroyEyes();
             source = main;
+            if (vrLayer < 0)
+            {
+                vrLayer = PickUnusedLayer(main.cullingMask);
+                Log.LogInfo($"Lasers and screen on layer {vrLayer}");
+            }
             eyeNear = main.nearClipPlane;
             eyeFar = main.farClipPlane;
             leftEye = CreateEye(main, EVREye.Eye_Left, leftTex);
@@ -336,7 +352,7 @@ namespace TowerSim3VR
             }
             foreach (var eye in new[] { leftEye, rightEye })
             {
-                eye.cullingMask = source.cullingMask;
+                eye.cullingMask = source.cullingMask | (1 << vrLayer);
                 eye.clearFlags = source.clearFlags;
                 eye.backgroundColor = source.backgroundColor;
             }
@@ -369,20 +385,29 @@ namespace TowerSim3VR
                     needsRecenter = false;
                     Log.LogInfo("Recentered");
                 }
-                var recenter = Quaternion.Euler(0f, -zeroYaw, 0f);
-                var localPosition = recenter * (headPosition - zeroPosition);
-                var localRotation = recenter * headRotation;
+                TrackingToLocal(headPosition, headRotation, out var localPosition, out var localRotation);
 
                 var t = source.transform;
                 var baseRotation = Plugin.YawOnly.Value ? Quaternion.Euler(0f, t.eulerAngles.y, 0f) : t.rotation;
-                head.SetPositionAndRotation(t.position + baseRotation * localPosition, baseRotation * localRotation);
+                body.SetPositionAndRotation(t.position, baseRotation);
+                head.localPosition = localPosition;
+                head.localRotation = localRotation;
                 LevelMovement.HeadYaw = head.eulerAngles.y;
                 LevelMovement.Active = true;
+                UpdateHands();
             }
             catch (Exception ex)
             {
                 Log.LogError($"VR frame error: {ex}");
             }
+        }
+
+        // A tracking-space pose relative to the recentre pose, as a local pose under the body.
+        void TrackingToLocal(Vector3 position, Quaternion rotation, out Vector3 localPosition, out Quaternion localRotation)
+        {
+            var recenter = Quaternion.Euler(0f, -zeroYaw, 0f);
+            localPosition = recenter * (position - zeroPosition);
+            localRotation = recenter * rotation;
         }
 
         IEnumerator SubmitLoop()
@@ -392,6 +417,7 @@ namespace TowerSim3VR
             {
                 yield return wait;
                 if (!running) continue;
+                CaptureScreen();
                 try
                 {
                     var bounds = Plugin.FlipEyes.Value

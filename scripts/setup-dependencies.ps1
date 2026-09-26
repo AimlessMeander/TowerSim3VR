@@ -28,7 +28,7 @@ $gameDlls = @(
     "UnityEngine.dll", "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll",
     "UnityEngine.InputLegacyModule.dll", "UnityEngine.UI.dll", "UnityEngine.UIModule.dll",
     "UnityEngine.IMGUIModule.dll", "UnityEngine.TextRenderingModule.dll",
-    "UnityEngine.XRModule.dll", "UnityEngine.VRModule.dll", "UnityEngine.SubsystemsModule.dll", "UnityEngine.VideoModule.dll",
+    "UnityEngine.XRModule.dll", "UnityEngine.VRModule.dll", "UnityEngine.SubsystemsModule.dll", "UnityEngine.VideoModule.dll", "UnityEngine.ScreenCaptureModule.dll",
     "Unity.RenderPipelines.Core.Runtime.dll", "Unity.RenderPipelines.HighDefinition.Runtime.dll",
     "Unity.InputSystem.dll", "Unity.TextMeshPro.dll", "Cinemachine.dll"
 )
