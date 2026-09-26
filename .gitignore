@@ -1,0 +1,7 @@
+bin/
+obj/
+downloads/
+reference/
+lib/
+*.user
+dist/
