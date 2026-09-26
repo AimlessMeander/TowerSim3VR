@@ -4,8 +4,8 @@ using BepInEx.Logging;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 using UnityEngine.Rendering.HighDefinition;
-using UnityEngine.SceneManagement;
 using Valve.VR;
 
 namespace TowerSim3VR
@@ -28,7 +28,6 @@ namespace TowerSim3VR
 
         // body: the game camera's pose (level unless YawOnly is off); head: the headset relative to it.
         Transform body, head;
-        int vrLayer = -1;
         const ETrackingUniverseOrigin TrackingSpace = ETrackingUniverseOrigin.TrackingUniverseSeated;
         Camera source;
         Camera leftEye, rightEye;
@@ -40,7 +39,7 @@ namespace TowerSim3VR
         Vector3 zeroPosition;
         float zeroYaw;
         bool needsRecenter = true;
-        bool loggedUpdate;
+        EVRCompositorError lastSubmitError = EVRCompositorError.None;
 
         // Automatic start/stop, as in NuclearesVR: VR starts once per airport load when the game is fully
         // loaded (and, in Auto mode, SteamVR is already running), and stops once the game has been left
@@ -52,10 +51,9 @@ namespace TowerSim3VR
 
         void Awake()
         {
-            SceneManager.sceneLoaded += (scene, mode) => Log.LogInfo($"Scene loaded: {scene.name} (#{scene.buildIndex}, {mode})");
             Application.onBeforeRender += OnBeforeRender;
             StartCoroutine(SubmitLoop());
-            Log.LogInfo($"TowerSim3VR loaded (VrMode {Plugin.Mode.Value}). Ctrl+Shift+V starts/stops VR, End recenters.");
+            Log.LogInfo($"TowerSim3VR loaded (VrMode {Plugin.Mode.Value}). Ctrl+Shift+V starts/stops VR, End recentres.");
         }
 
         // The same test the game's camera controller uses before it lets the camera move.
@@ -129,34 +127,13 @@ namespace TowerSim3VR
 
         void Update()
         {
-            if (!loggedUpdate)
-            {
-                loggedUpdate = true;
-                Log.LogInfo("Controller running");
-            }
             UpdateAutoStart();
-            RadioDiagnostics.Update();
             var kb = Keyboard.current;
             if (kb != null)
             {
-                bool ctrlShift = kb.ctrlKey.isPressed && kb.shiftKey.isPressed;
-                if (ctrlShift && kb.vKey.wasPressedThisFrame)
+                if (kb.ctrlKey.isPressed && kb.shiftKey.isPressed && kb.vKey.wasPressedThisFrame)
                 {
                     if (running) StopVr(); else if (!shuttingDown) StartVr();
-                }
-                if (ctrlShift && kb.fKey.wasPressedThisFrame)
-                {
-                    Plugin.FlipEyes.Value = !Plugin.FlipEyes.Value;
-                    Log.LogInfo($"FlipEyes = {Plugin.FlipEyes.Value}");
-                }
-                if (ctrlShift && kb.oKey.wasPressedThisFrame)
-                {
-                    Plugin.OverlayFlip.Value = !Plugin.OverlayFlip.Value;
-                    Log.LogInfo($"OverlayFlip = {Plugin.OverlayFlip.Value}");
-                }
-                if (ctrlShift && kb.cKey.wasPressedThisFrame)
-                {
-                    DumpCameras();
                 }
                 if (kb.endKey.wasPressedThisFrame)
                 {
@@ -168,17 +145,20 @@ namespace TowerSim3VR
                 UpdateSticks();
                 UpdateZoom();
                 UpdateBinocularMask();
-                UpdateVisibilityLog();
                 UpdateScreen();
                 GraphicsOverrides.Enforce();
                 FramePacing.Enforce();
-                FramePacing.LogStats();
             }
         }
 
         void StartVr()
         {
             if (running) return;
+            if (SystemInfo.graphicsDeviceType != GraphicsDeviceType.Direct3D11)
+            {
+                Log.LogWarning($"The game is running on {SystemInfo.graphicsDeviceType}; the VR mod needs Direct3D 11 "
+                    + "(the game's default - don't start it with TowerDX12.bat). VR may show nothing.");
+            }
             var error = EVRInitError.None;
             system = OpenVR.Init(ref error, EVRApplicationType.VRApplication_Scene);
             if (error != EVRInitError.None)
@@ -202,11 +182,10 @@ namespace TowerSim3VR
             head = new GameObject("TowerSim3VR_Head").transform;
             head.SetParent(body, false);
             InitInput();
-            DetectUiInput();
 
             running = true;
             needsRecenter = true;
-            FramePacing.ResetStats();
+            lastSubmitError = EVRCompositorError.None;
             var hzError = ETrackedPropertyError.TrackedProp_Success;
             var hz = system.GetFloatTrackedDeviceProperty(OpenVR.k_unTrackedDeviceIndex_Hmd,
                 ETrackedDeviceProperty.Prop_DisplayFrequency_Float, ref hzError);
@@ -283,18 +262,13 @@ namespace TowerSim3VR
         {
             DestroyEyes();
             source = main;
-            if (vrLayer < 0)
-            {
-                vrLayer = PickUnusedLayer(main.cullingMask);
-                Log.LogInfo($"Lasers and screen on layer {vrLayer}");
-            }
             eyeNear = main.nearClipPlane;
             eyeFar = main.farClipPlane;
             leftEye = CreateEye(main, EVREye.Eye_Left, leftTex);
             rightEye = CreateEye(main, EVREye.Eye_Right, rightTex);
             // After the eyes are made, so they don't copy the hook from the game camera's HDRP data.
             if (Plugin.MonitorShowsEye.Value) monitor.Attach(main, leftTex);
-            Log.LogInfo($"Eye cameras follow '{main.name}' (near {eyeNear}, far {eyeFar}, mask {main.cullingMask})");
+            Log.LogInfo($"Eye cameras follow '{main.name}'");
         }
 
         Camera CreateEye(Camera main, EVREye eye, RenderTexture target)
@@ -355,7 +329,7 @@ namespace TowerSim3VR
             source = null;
         }
 
-        // Keep the eyes' settings in step with the game camera, which the game changes (views, zoom levels).
+        // Keep the eyes' settings in step with the game camera, which the game changes (views, loading).
         void SyncEyes()
         {
             if (!Mathf.Approximately(source.nearClipPlane, eyeNear) || !Mathf.Approximately(source.farClipPlane, eyeFar) || zoom != appliedZoom)
@@ -366,12 +340,15 @@ namespace TowerSim3VR
                 ApplyProjection(leftEye, EVREye.Eye_Left);
                 ApplyProjection(rightEye, EVREye.Eye_Right);
             }
-            foreach (var eye in new[] { leftEye, rightEye })
-            {
-                eye.cullingMask = source.cullingMask | (1 << vrLayer);
-                eye.clearFlags = source.clearFlags;
-                eye.backgroundColor = source.backgroundColor;
-            }
+            SyncEye(leftEye);
+            SyncEye(rightEye);
+        }
+
+        void SyncEye(Camera eye)
+        {
+            eye.cullingMask = source.cullingMask;
+            eye.clearFlags = source.clearFlags;
+            eye.backgroundColor = source.backgroundColor;
         }
 
         // After LateUpdate (the game and Cinemachine have placed the camera), before rendering.
@@ -399,7 +376,6 @@ namespace TowerSim3VR
                     zeroPosition = headPosition;
                     zeroYaw = headRotation.eulerAngles.y;
                     needsRecenter = false;
-                    Log.LogInfo("Recentered");
                 }
                 TrackingToLocal(headPosition, headRotation, out var localPosition, out var localRotation);
 
@@ -411,7 +387,6 @@ namespace TowerSim3VR
                 LevelMovement.HeadYaw = head.eulerAngles.y;
                 LevelMovement.Active = true;
                 UpdateHands();
-                CheckScreenshotRequest();
             }
             catch (Exception ex)
             {
@@ -430,40 +405,32 @@ namespace TowerSim3VR
         IEnumerator SubmitLoop()
         {
             var wait = new WaitForEndOfFrame();
+            // The eye images come out of Unity upside down for SteamVR; flipped here via the texture bounds.
+            var bounds = new VRTextureBounds_t { uMin = 0, vMin = 1, uMax = 1, vMax = 0 };
             while (true)
             {
                 yield return wait;
                 if (!running) continue;
                 CaptureScreen();
                 DrawOverlays();
-                SaveEyeScreenshot();
                 try
                 {
-                    var bounds = Plugin.FlipEyes.Value
-                        ? new VRTextureBounds_t { uMin = 0, vMin = 1, uMax = 1, vMax = 0 }
-                        : new VRTextureBounds_t { uMin = 0, vMin = 0, uMax = 1, vMax = 1 };
                     var left = new Texture_t { handle = leftTex.GetNativeTexturePtr(), eType = ETextureType.DirectX, eColorSpace = EColorSpace.Auto };
                     var right = new Texture_t { handle = rightTex.GetNativeTexturePtr(), eType = ETextureType.DirectX, eColorSpace = EColorSpace.Auto };
-                    var leftError = OpenVR.Compositor.Submit(EVREye.Eye_Left, ref left, ref bounds, EVRSubmitFlags.Submit_Default);
+                    var error = OpenVR.Compositor.Submit(EVREye.Eye_Left, ref left, ref bounds, EVRSubmitFlags.Submit_Default);
                     var rightError = OpenVR.Compositor.Submit(EVREye.Eye_Right, ref right, ref bounds, EVRSubmitFlags.Submit_Default);
-                    if (leftError != EVRCompositorError.None || rightError != EVRCompositorError.None)
+                    if (error == EVRCompositorError.None) error = rightError;
+                    // Logged once per change: SteamVR refuses frames while its dashboard is open, for example.
+                    if (error != lastSubmitError)
                     {
-                        Log.LogWarning($"Submit: left {leftError}, right {rightError}");
+                        lastSubmitError = error;
+                        if (error != EVRCompositorError.None) Log.LogWarning($"SteamVR did not take a frame: {error}");
                     }
                 }
                 catch (Exception ex)
                 {
                     Log.LogError($"VR submit error: {ex}");
                 }
-            }
-        }
-
-        static void DumpCameras()
-        {
-            foreach (var c in Camera.allCameras)
-            {
-                Log.LogInfo($"Camera '{c.name}' depth={c.depth} target={(c.targetTexture ? c.targetTexture.name : "screen")} "
-                    + $"pos={c.transform.position} rot={c.transform.eulerAngles} mask={c.cullingMask} main={c == Camera.main}");
             }
         }
 

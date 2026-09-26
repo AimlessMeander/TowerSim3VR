@@ -1,12 +1,11 @@
 ﻿<#
 .SYNOPSIS
-  Populates lib/ with everything the project needs to build, but that we don't
-  commit to git: the game's own assemblies (copyrighted, must come from your
-  local install) and the BepInEx core assemblies.
+  Populates lib/ with everything the project needs to build but that isn't in git: the game's own
+  assemblies (copyrighted, must come from your local install), the BepInEx core assemblies, and Valve's
+  openvr_api.dll (downloaded from Valve's GitHub if missing).
 
 .PARAMETER GameDir
-  Path to the Tower! Simulator 3 install. Defaults to the Steam location found on
-  this machine; override if yours differs.
+  Path to the Tower! Simulator 3 install, with BepInEx 5 already installed in it.
 #>
 param(
     [string]$GameDir = "E:\Programs\Steam\steamapps\common\Tower! Simulator 3"
@@ -24,28 +23,27 @@ New-Item -ItemType Directory -Force -Path "$root\lib\game" | Out-Null
 New-Item -ItemType Directory -Force -Path "$root\lib\bepinex" | Out-Null
 
 $gameDlls = @(
-    "Assembly-CSharp.dll", "Assembly-CSharp-firstpass.dll",
-    "UnityEngine.dll", "UnityEngine.CoreModule.dll", "UnityEngine.PhysicsModule.dll",
-    "UnityEngine.InputLegacyModule.dll", "UnityEngine.UI.dll", "UnityEngine.UIModule.dll",
-    "UnityEngine.IMGUIModule.dll", "UnityEngine.TextRenderingModule.dll",
-    "UnityEngine.XRModule.dll", "UnityEngine.VRModule.dll", "UnityEngine.SubsystemsModule.dll", "UnityEngine.VideoModule.dll", "UnityEngine.ScreenCaptureModule.dll", "UnityEngine.ImageConversionModule.dll",
-    "Unity.RenderPipelines.Core.Runtime.dll", "Unity.RenderPipelines.HighDefinition.Runtime.dll",
-    "Unity.InputSystem.dll", "Unity.TextMeshPro.dll", "Cinemachine.dll"
+    "Assembly-CSharp.dll",
+    "UnityEngine.dll", "UnityEngine.CoreModule.dll", "UnityEngine.InputLegacyModule.dll", "UnityEngine.PhysicsModule.dll",
+    "UnityEngine.ScreenCaptureModule.dll", "UnityEngine.UI.dll", "UnityEngine.UIModule.dll", "UnityEngine.VideoModule.dll",
+    "Unity.InputSystem.dll", "Unity.RenderPipelines.Core.Runtime.dll", "Unity.RenderPipelines.HighDefinition.Runtime.dll"
 )
 foreach ($dll in $gameDlls) {
     $src = Join-Path $managed $dll
-    if (Test-Path $src) {
-        Copy-Item $src "$root\lib\game\" -Force
-    } else {
-        Write-Warning "Missing (skipped): $dll"
-    }
+    if (-not (Test-Path $src)) { throw "Missing $dll in $managed" }
+    Copy-Item $src "$root\lib\game\" -Force
 }
 
 $bepinexCore = Join-Path $GameDir "BepInEx\core"
 if (-not (Test-Path $bepinexCore)) {
-    throw "BepInEx isn't installed in $GameDir yet - install it first (see README.md)."
+    throw "BepInEx isn't installed in $GameDir yet - install BepInEx 5 (x64) there first."
 }
 Copy-Item "$bepinexCore\BepInEx.dll" "$root\lib\bepinex\" -Force
 Copy-Item "$bepinexCore\0Harmony.dll" "$root\lib\bepinex\" -Force
+
+$openvrDll = "$root\lib\openvr_api.dll"
+if (-not (Test-Path $openvrDll)) {
+    Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ValveSoftware/openvr/master/bin/win64/openvr_api.dll" -OutFile $openvrDll
+}
 
 Write-Host "Dependencies ready. Build with: dotnet build src/TowerSim3VR/TowerSim3VR.csproj" -ForegroundColor Green

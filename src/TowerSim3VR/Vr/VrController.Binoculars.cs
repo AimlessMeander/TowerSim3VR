@@ -6,8 +6,8 @@ namespace TowerSim3VR
     //  - Stabilising: magnified, the view shakes with every tremor of the head. While zoomed, the view's rotation
     //    follows the head through a low-pass filter that gets stronger with the zoom, so tremor is absorbed and
     //    deliberate turns still pan. At 1x the head is used as is.
-    //  - A frame: a black mask with the classic two-circle opening, up while Y is held (drawn unzoomed). It hangs far in front
-    //    of the eyes and draws over everything, so both eyes see it in the same place (no double image).
+    //  - A frame: a black mask with the classic two-circle opening, up while Y is held. It hangs far in front of the
+    //    eyes, drawn over everything and without the zoom, so both eyes see it in the same place (no double image).
     public partial class VrController
     {
         Quaternion smoothedHead = Quaternion.identity;
@@ -46,8 +46,7 @@ namespace TowerSim3VR
             // Up as soon as Y is held (as with real binoculars), until let go and the zoom is back to 1x.
             bool want = Plugin.BinocularFrame.Value && (Looking || zoom > 1.01f) && !screenVisible;
             maskAlpha = Mathf.MoveTowards(maskAlpha, want ? 1f : 0f, Time.unscaledDeltaTime / 0.2f);
-            float alpha = maskAlpha;
-            if (alpha <= 0f)
+            if (maskAlpha <= 0f)
             {
                 if (binocularMask != null && binocularMask.activeSelf) binocularMask.SetActive(false);
                 return;
@@ -55,14 +54,13 @@ namespace TowerSim3VR
             if (head == null) return;
             if (binocularMask == null) CreateBinocularMask();
             if (!binocularMask.activeSelf) binocularMask.SetActive(true);
-            binocularMaterial.color = new Color(1f, 1f, 1f, alpha);
+            binocularMaterial.color = new Color(1f, 1f, 1f, maskAlpha);
         }
 
         void CreateBinocularMask()
         {
             binocularMask = GameObject.CreatePrimitive(PrimitiveType.Quad);
             binocularMask.name = "TowerSim3VR_Binoculars";
-            binocularMask.layer = vrLayer;
             Destroy(binocularMask.GetComponent<Collider>());
             // On the head the eyes hang from (the steadied one): SteamVR shows each frame as if rendered from the real
             // head, so whatever is fixed to the eye cameras is fixed to the display.
@@ -75,13 +73,11 @@ namespace TowerSim3VR
 
             if (binocularMaterial == null)
             {
-                binocularMaterial = new Material(Shader.Find("UI/Default")) { mainTexture = MakeMaskTexture(size), renderQueue = 3102 };
+                binocularMaterial = new Material(Shader.Find("UI/Default")) { mainTexture = MakeMaskTexture(size) };
                 binocularMaterial.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
             }
             var renderer = binocularMask.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = binocularMaterial;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
             RegisterOverlay(renderer, 5); // over the lasers too
         }
 

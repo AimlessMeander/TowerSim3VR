@@ -4,14 +4,14 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using UnityEngine;
-using UnityEngine.EventSystems;
 using Valve.VR;
 
 namespace TowerSim3VR
 {
     // Motion controllers through SteamVR Input (manifest and Quest Touch bindings next to the DLL; anyone can
-    // remap in SteamVR's binding screen). As in NuclearesVR: one laser per hand, the last hand to pull its
-    // trigger points, trigger is the left mouse button, sticks move and turn. Buttons: X push to talk, Y look at the airplane, B menu, A the 2D screen, right stick click F1 (desk view).
+    // remap in SteamVR's binding screen). As in NuclearesVR: the last hand to pull its trigger has the laser, the
+    // trigger is the left mouse button, sticks move and turn. Buttons: X push to talk, Y look at the airplane
+    // (the right stick zooms), B menu, A the 2D screen, right stick click F1 (desk view).
     //
     // Pointing into the world: the game does every 3D click (radar screens, aircraft tags, picking aircraft)
     // from Camera.main.ScreenPointToRay(Input.mousePosition), and the radar screens work out the position on
@@ -25,7 +25,7 @@ namespace TowerSim3VR
             public bool Valid;
             public Vector3 Position;   // world
             public Quaternion Rotation;
-            public bool Trigger, Grip, StickClick;
+            public bool Trigger, StickClick;
         }
 
         Hand leftHand, rightHand;
@@ -33,16 +33,17 @@ namespace TowerSim3VR
         bool buttonA, buttonB, buttonX, buttonY;
 
         bool inputReady;
-        ulong actionSet, hPoseL, hPoseR, hTrigL, hTrigR, hGripL, hGripR, hMove, hTurn, hA, hB, hX, hY, hClickL, hClickR;
+        ulong hPoseL, hPoseR, hTrigL, hTrigR, hMove, hTurn, hA, hB, hX, hY, hClickL, hClickR;
+        readonly VRActiveActionSet_t[] actionSets = new VRActiveActionSet_t[1];
         static readonly uint DigitalSize = (uint)Marshal.SizeOf(typeof(InputDigitalActionData_t));
         static readonly uint AnalogSize = (uint)Marshal.SizeOf(typeof(InputAnalogActionData_t));
         static readonly uint PoseSize = (uint)Marshal.SizeOf(typeof(InputPoseActionData_t));
+        static readonly uint ActionSetSize = (uint)Marshal.SizeOf(typeof(VRActiveActionSet_t));
 
         GameObject leftLaser, rightLaser;
-        Material laserIdle, laserActive, dotIdle, dotActive, handBall;
+        Material laserIdle, laserActive, dotIdle, dotActive, handMarker;
         bool activeHandIsRight = true;
         bool previousLeftTrigger, previousRightTrigger, previousA;
-        bool loggedBall;
         // Y held: looking at the airplane (the game's look key), which also makes the right stick the binocular zoom.
         bool Looking => buttonY;
         bool pointingAtDesk;
@@ -74,15 +75,16 @@ namespace TowerSim3VR
                     Log.LogWarning($"SteamVR Input: manifest -> {error}");
                     return;
                 }
+                ulong actionSet = 0;
                 bool ok = OpenVR.Input.GetActionSetHandle("/actions/main", ref actionSet) == EVRInputError.None;
+                actionSets[0] = new VRActiveActionSet_t { ulActionSet = actionSet, ulRestrictedToDevice = OpenVR.k_ulInvalidInputValueHandle };
                 ok &= Handle("PoseLeft", ref hPoseL) & Handle("PoseRight", ref hPoseR);
                 ok &= Handle("TriggerLeft", ref hTrigL) & Handle("TriggerRight", ref hTrigR);
-                ok &= Handle("GripLeft", ref hGripL) & Handle("GripRight", ref hGripR);
                 ok &= Handle("Move", ref hMove) & Handle("Turn", ref hTurn);
                 ok &= Handle("ButtonA", ref hA) & Handle("ButtonB", ref hB) & Handle("ButtonX", ref hX) & Handle("ButtonY", ref hY);
                 ok &= Handle("StickClickLeft", ref hClickL) & Handle("StickClickRight", ref hClickR);
                 inputReady = ok;
-                Log.LogInfo(ok ? "SteamVR Input ready" : "SteamVR Input: some actions were not found");
+                if (!ok) Log.LogWarning("SteamVR Input: some actions were not found");
             }
             catch (Exception ex)
             {
@@ -111,7 +113,7 @@ namespace TowerSim3VR
                 && data.bActive ? new Vector2(data.x, data.y) : Vector2.zero;
         }
 
-        void ReadHand(ulong pose, ulong trigger, ulong grip, ulong click, ref Hand hand)
+        void ReadHand(ulong pose, ulong trigger, ulong click, ref Hand hand)
         {
             var data = new InputPoseActionData_t();
             var error = OpenVR.Input.GetPoseActionDataForNextFrame(pose, TrackingSpace, ref data, PoseSize, OpenVR.k_ulInvalidInputValueHandle);
@@ -125,7 +127,6 @@ namespace TowerSim3VR
                 hand.Rotation = body.rotation * localRotation * Quaternion.Euler(Plugin.LaserPitch.Value, 0f, 0f);
             }
             hand.Trigger = Digital(trigger);
-            hand.Grip = Digital(grip);
             hand.StickClick = Digital(click);
         }
 
@@ -133,11 +134,10 @@ namespace TowerSim3VR
         void UpdateHands()
         {
             if (!inputReady || body == null) return;
-            var sets = new[] { new VRActiveActionSet_t { ulActionSet = actionSet, ulRestrictedToDevice = OpenVR.k_ulInvalidInputValueHandle } };
-            if (OpenVR.Input.UpdateActionState(sets, (uint)Marshal.SizeOf(typeof(VRActiveActionSet_t))) != EVRInputError.None) return;
+            if (OpenVR.Input.UpdateActionState(actionSets, ActionSetSize) != EVRInputError.None) return;
 
-            ReadHand(hPoseL, hTrigL, hGripL, hClickL, ref leftHand);
-            ReadHand(hPoseR, hTrigR, hGripR, hClickR, ref rightHand);
+            ReadHand(hPoseL, hTrigL, hClickL, ref leftHand);
+            ReadHand(hPoseR, hTrigR, hClickR, ref rightHand);
             moveStick = Analog(hMove);
             turnStick = Analog(hTurn);
             buttonA = Digital(hA);
@@ -159,6 +159,7 @@ namespace TowerSim3VR
             EnsureLasers();
             var hand = activeHandIsRight ? rightHand : leftHand;
             bool onScreen = false, inWorld = false;
+            var worldTarget = Vector3.zero;
             float activeLength = LaserIdleLength;
             pointingAtDesk = false;
 
@@ -170,7 +171,6 @@ namespace TowerSim3VR
                     onScreen = true;
                     activeLength = screenDistance;
                     VrKeys.MousePosition = screenPixel;
-                    if (uiUsesInputSystem) MoveOsCursor(screenPixel);
                 }
                 else if (!screenVisible)
                 {
@@ -192,6 +192,7 @@ namespace TowerSim3VR
                         pointingAtDesk = true;
                     }
                     if (nearest < float.PositiveInfinity) activeLength = nearest;
+                    worldTarget = target;
                     var projected = source.WorldToScreenPoint(target);
                     if (projected.z > 0f)
                     {
@@ -208,14 +209,10 @@ namespace TowerSim3VR
             {
                 VrKeys.AimOrigin = hand.Position;
                 VrKeys.AimRotation = hand.Rotation;
+                VrKeys.AimTarget = worldTarget;
                 VrKeys.AimCamera = source.transform;
             }
-            bool pointing = onScreen || inWorld;
-            // On the 2D screen with the new Input System's UI module, the real cursor and a real click do it
-            // (that module reads the mouse device, not Input); otherwise the patched buttons do.
-            bool realClick = onScreen && uiUsesInputSystem && Application.isFocused;
-            SetRealLeftButton(realClick && hand.Trigger);
-            VrKeys.SetMouseButton(0, pointing && !realClick && hand.Trigger);
+            VrKeys.SetMouseButton(0, (onScreen || inWorld) && hand.Trigger);
 
             ShowLaser(leftLaser, leftHand, !activeHandIsRight, activeHandIsRight ? LaserIdleLength : activeLength);
             ShowLaser(rightLaser, rightHand, activeHandIsRight, activeHandIsRight ? activeLength : LaserIdleLength);
@@ -232,11 +229,7 @@ namespace TowerSim3VR
             if (rightHand.StickClick && Plugin.KeyRightStick.Value != KeyCode.None) wantedKeys.Add(Plugin.KeyRightStick.Value);
             VrKeys.Apply(wantedKeys);
 
-            if (buttonA && !previousA)
-            {
-                screenToggled = !screenToggled;
-                Log.LogInfo(screenToggled ? "2D screen shown" : "2D screen hidden");
-            }
+            if (buttonA && !previousA) screenToggled = !screenToggled;
             previousA = buttonA;
 
             // Holding both triggers recentres (once per hold).
@@ -255,15 +248,15 @@ namespace TowerSim3VR
                 recentredThisHold = false;
             }
 
-            // Right stick up/down zooms a radar screen while the laser is on it (the mouse wheel); while A is held
-            // (Y, looking at the airplane) it is the binocular zoom instead.
+            // Right stick up/down zooms a radar screen while the laser is on it (the mouse wheel); while Y is held
+            // it is the binocular zoom instead.
             VrKeys.Scroll = !Looking && pointingAtDesk && Mathf.Abs(turnStick.y) > StickDeadzone ? turnStick.y * 0.05f : 0f;
         }
 
         // ---- binocular zoom while looking at the airplane ----
         // On a monitor the mouse wheel narrows the camera's field of view, which the headset ignores (the eyes
-        // have its projection). So both eyes' projections are magnified instead, like binoculars, while A is held;
-        // letting go of A returns to 1x (the game itself puts the view back where it was). LOD bias is raised by the
+        // have its projection). So both eyes' projections are magnified instead, like binoculars, while Y is held;
+        // letting go of Y returns to 1x (the game itself puts the view back where it was). LOD bias is raised by the
         // same factor so a far-away airplane is drawn in full detail when magnified.
         float zoom = 1f;
         float zoomTarget = 1f;
@@ -329,8 +322,6 @@ namespace TowerSim3VR
             }
         }
 
-        static float Deadzone(float v) => Mathf.Abs(v) > StickDeadzone ? v : 0f;
-
         // Past the dead zone, rescaled to 0..1 and squared: a small push is slow, a full push full speed.
         static float Curve(float v)
         {
@@ -348,7 +339,7 @@ namespace TowerSim3VR
             distance = float.PositiveInfinity;
             if (Time.unscaledTime >= nextCanvasScan)
             {
-                nextCanvasScan = Time.unscaledTime + 1f;
+                nextCanvasScan = Time.unscaledTime + 2f;
                 worldCanvases.Clear();
                 foreach (var canvas in FindObjectsOfType<Canvas>())
                 {
@@ -370,19 +361,17 @@ namespace TowerSim3VR
             return distance < float.PositiveInfinity;
         }
 
-        // ---- lasers ----
+        // ---- lasers (drawn into the eye images over everything, see VrController.Overlay.cs) ----
 
         void EnsureLasers()
         {
             if (laserIdle == null)
             {
-                // Drawn into the eye images over everything (VrController.Overlay.cs). The beam ends at the first
-                // thing it meets, so nothing solid lies between the hand and its end anyway.
-                laserIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 0.6f), 3100, "laserIdle");
-                laserActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), 3100);
-                dotIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 1f), 3101);
-                dotActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), 3101);
-                handBall = MakeUnlitColor(new Color(0.9f, 0.95f, 1f, 1f), 3101, "handBall");
+                laserIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 0.6f));
+                laserActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f));
+                dotIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 1f));
+                dotActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f));
+                handMarker = MakeUnlitColor(new Color(0.9f, 0.95f, 1f, 1f));
             }
             if (leftLaser == null) leftLaser = MakeLaser();
             if (rightLaser == null) rightLaser = MakeLaser();
@@ -392,18 +381,14 @@ namespace TowerSim3VR
         {
             var root = new GameObject("TowerSim3VR_Laser");
             root.transform.SetParent(body, false);
-            root.layer = vrLayer;
             foreach (var (name, type, order) in new[] { ("Beam", PrimitiveType.Cube, 1), ("Dot", PrimitiveType.Sphere, 2) })
             {
                 var part = GameObject.CreatePrimitive(type);
                 part.name = name;
-                part.layer = vrLayer;
                 part.transform.SetParent(root.transform, false);
                 Destroy(part.GetComponent<Collider>()); // must never get in the way of the game's raycasts
                 var renderer = part.GetComponent<MeshRenderer>();
                 renderer.sharedMaterial = laserIdle;
-                renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                renderer.receiveShadows = false;
                 RegisterOverlay(renderer, order);
             }
             return root;
@@ -416,88 +401,40 @@ namespace TowerSim3VR
             laser.transform.SetPositionAndRotation(hand.Position, hand.Rotation);
             var beam = laser.transform.GetChild(0);
             var dot = laser.transform.GetChild(1);
+            var beamRenderer = beam.GetComponent<MeshRenderer>();
+            var dotRenderer = dot.GetComponent<MeshRenderer>();
 
             // Only the active hand has a laser; the other shows a short stub, to show where it is and which way it points.
-            // (A lone ball at the hand never showed up in the headset, although it was placed and active; the beam does.)
             if (!active)
             {
                 const float stub = 0.08f;
                 beam.localPosition = new Vector3(0f, 0f, stub * 0.5f);
                 beam.localScale = new Vector3(0.006f, 0.006f, stub);
-                beam.GetComponent<MeshRenderer>().sharedMaterial = handBall;
                 dot.localPosition = new Vector3(0f, 0f, stub);
                 dot.localScale = Vector3.one * 0.015f;
-                dot.GetComponent<MeshRenderer>().sharedMaterial = handBall;
-                if (!loggedBall && head != null)
-                {
-                    loggedBall = true;
-                    Log.LogInfo($"Inactive hand ball: {Vector3.Distance(dot.position, head.position):F2} m from the head, "
-                        + $"shown {dot.gameObject.activeInHierarchy}, eye near plane {eyeNear}");
-                }
+                beamRenderer.sharedMaterial = handMarker;
+                dotRenderer.sharedMaterial = handMarker;
                 return;
             }
             beam.localPosition = new Vector3(0f, 0f, length * 0.5f);
             beam.localScale = new Vector3(0.003f, 0.003f, length);
             dot.localPosition = new Vector3(0f, 0f, length);
             dot.localScale = Vector3.one * Mathf.Clamp(length * 0.008f, 0.012f, 3f);
-            bool pressed = active && hand.Trigger;
-            beam.GetComponent<MeshRenderer>().sharedMaterial = pressed ? laserActive : laserIdle;
-            dot.GetComponent<MeshRenderer>().sharedMaterial = pressed ? dotActive : dotIdle;
+            beamRenderer.sharedMaterial = hand.Trigger ? laserActive : laserIdle;
+            dotRenderer.sharedMaterial = hand.Trigger ? dotActive : dotIdle;
         }
 
-        // UI/Default is always in a build and HDRP draws it unlit and without exposure, like world-space UI.
-        static Material MakeUnlitColor(Color color, int renderQueue, string name = "TowerSim3VR")
+        // UI/Default is always in a build: unlit, alpha blended, no culling.
+        static Material MakeUnlitColor(Color color)
         {
-            var material = new Material(Shader.Find("UI/Default")) { color = color, renderQueue = renderQueue, name = name };
+            var material = new Material(Shader.Find("UI/Default")) { color = color };
             material.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
             return material;
-        }
-
-        // ---- the real Windows cursor, for the 2D screen when the UI reads the mouse device ----
-
-        [DllImport("user32.dll")] static extern void mouse_event(uint flags, uint dx, uint dy, uint data, UIntPtr extra);
-        [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
-        [DllImport("user32.dll")] static extern IntPtr GetActiveWindow();
-        [DllImport("user32.dll")] static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
-        [DllImport("user32.dll")] static extern bool ClientToScreen(IntPtr hwnd, ref POINT point);
-        [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
-        [StructLayout(LayoutKind.Sequential)] struct POINT { public int X, Y; }
-
-        bool uiUsesInputSystem;
-        bool realLeftDown;
-
-        void DetectUiInput()
-        {
-            var module = EventSystem.current != null ? EventSystem.current.currentInputModule : null;
-            var name = module != null ? module.GetType().Name : "none";
-            uiUsesInputSystem = name.Contains("InputSystem");
-            Log.LogInfo($"UI input module: {name}");
-        }
-
-        static void MoveOsCursor(Vector2 unityPixel)
-        {
-            if (!Application.isFocused) return;
-            var window = GetActiveWindow();
-            if (window == IntPtr.Zero || !GetClientRect(window, out var rect)) return;
-            var point = new POINT
-            {
-                X = Mathf.RoundToInt(unityPixel.x / Screen.width * (rect.Right - rect.Left)),
-                Y = Mathf.RoundToInt((1f - unityPixel.y / Screen.height) * (rect.Bottom - rect.Top)),
-            };
-            if (ClientToScreen(window, ref point)) SetCursorPos(point.X, point.Y);
-        }
-
-        void SetRealLeftButton(bool down)
-        {
-            if (down == realLeftDown) return;
-            realLeftDown = down;
-            mouse_event(down ? 0x0002u : 0x0004u, 0, 0, 0, UIntPtr.Zero);
         }
 
         // On leaving VR: no button or key left held.
         void ReleaseInput()
         {
-            SetRealLeftButton(false);
             VrKeys.Clear();
             inputReady = false;
             leftHand = rightHand = default;

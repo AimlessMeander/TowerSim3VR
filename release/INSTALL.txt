@@ -1,0 +1,118 @@
+TOWER! SIMULATOR 3 VR MOD  -  install guide
+=============================================
+
+This is an unofficial mod that lets you play Tower! Simulator 3 (Steam) in a VR headset through SteamVR,
+with head tracking and motion controllers. The game itself has no VR support; this adds it.
+
+This is a test version for playtesting. Please report anything that doesn't work (see the end).
+
+WHAT YOU NEED
+-------------
+ * Tower! Simulator 3, installed from Steam (Windows).
+ * SteamVR (free, on Steam) and a headset that works with it. Quest headsets work through Steam Link,
+   Virtual Desktop, Air Link or a cable. It has been tested with a Quest 3 and its Touch controllers
+   over Steam Link.
+ * A powerful graphics card. The game is demanding and VR draws it twice, at a high resolution.
+   (Tested on an RTX 4090 at 90 Hz.)
+
+HOW TO INSTALL (about 2 minutes)
+--------------------------------
+ 1. Find the game folder. In Steam: right-click Tower! Simulator 3 > Manage > Browse local files.
+    It contains "Tower! Simulator 3.exe".
+ 2. Open the zip. Copy EVERYTHING inside it into that game folder, so that "winhttp.dll" sits next to
+    "Tower! Simulator 3.exe". If Windows asks about replacing files, say yes.
+
+That is the whole install. You do not need to install anything else.
+
+HOW TO PLAY IN VR
+-----------------
+ 1. Start SteamVR first and put the headset on (or start Steam Link and connect to your PC).
+ 2. Start Tower! Simulator 3 from Steam (from the desktop, or from inside SteamVR).
+ 3. The main menu is a normal window on your monitor - this is deliberate. Use the mouse to choose
+    and load an airport.
+ 4. When the airport has loaded, VR starts and you are in the tower.
+ 5. If you exit to the main menu, VR switches off again and the menu is back on your monitor.
+
+To play on the monitor without VR, just start the game with SteamVR closed. The mod will not launch
+SteamVR by itself. (See "VrMode" in the settings if you want different behaviour.)
+
+Use the game's normal DirectX 11 mode (the default). Starting it with TowerDX12.bat is not supported.
+
+CONTROLS (Quest / Touch layout)
+-------------------------------
+ Point at things with either controller; a laser shows where you are pointing. The controller you last
+ pulled the trigger on has the laser; the other hand shows a short white marker.
+ Point at the radar screens, the strip board, the comms panel and aircraft, just as you would click them
+ with the mouse. Menus and pop-ups appear on a floating screen in front of you.
+
+   Trigger .............. Click. Hold it and move the laser to drag (for example strips on the strip board).
+   Left stick ........... Move, in the direction you are looking. Click it in for fast travel.
+   Right stick .......... Left / right: turn. Up / down: move up and down.
+                          While pointing at a radar screen: zoom that radar.
+   X (hold) ............. Push to talk (speech recognition), using the game's push-to-talk key.
+   Y (hold) ............. Look at the selected aircraft, like the game's "look at the airplane" key.
+                          While holding Y, push the right stick up / down to zoom in and out, like
+                          binoculars. Let go of Y and the view goes back.
+   B .................... Menu (Escape)
+   A .................... Show / hide the game's 2D windows on the floating screen.
+   Right stick click .... Back to the desk view (F1)
+   Both triggers held ... Recentre the view (hold them for 2 seconds while sitting comfortably and
+                          looking straight ahead). The End key on the keyboard also does it.
+
+ Every button can be changed in SteamVR's own controller settings (Devices > Controller Settings >
+ Tower! Simulator 3 > Edit binding). Other controllers should work too; set their buttons up there.
+
+ Keyboard: Ctrl+Shift+V switches VR off and on while playing.
+
+SETTINGS
+--------
+ After the first run, the file  BepInEx\config\com.mjh.towersim3vr.cfg  in the game folder holds the
+ settings. Open it in Notepad. Close the game before editing, and start it again afterwards.
+ The most useful ones:
+
+   VrMode ............... Auto (default): VR only if SteamVR is already running.
+                          Always: start VR (and SteamVR) when an airport loads.  Never: no VR
+                          (Ctrl+Shift+V still switches it on).
+   SkipIntro ............ Skips the intro video (default true).
+   RenderScale .......... Picture sharpness (default 1.0). Lower it (0.8 - 0.9) if the picture
+                          stutters, raise it if your graphics card can take it.
+   EyeAntialiasing ...... Edge smoothing in the headset. TemporalAntialiasing blurs when you move.
+   MoveSpeed ............ Walking speed with the left stick, metres per second (default 2).
+   FastMoveMultiplier ... How much faster with the left stick clicked in (default 30).
+   TurnSpeed ............ How fast the right stick turns you (degrees per second, default 45).
+   LaserPitch ........... Tilts the lasers up or down if they don't feel lined up with your hand.
+   [Binoculars] ......... MaxZoom, ZoomSpeed, Smoothing (how much a zoomed view is steadied),
+                          Frame (the binocular frame on or off) and CircleSize.
+   [VirtualScreen] ...... Distance, Down and Height of the floating screen for menus.
+
+KNOWN LIMITS
+------------
+ * The tower cab and its monitors disappear when you move outside the tower. That is how the game is
+   built (it hides the monitors away from the tower, and the cab is only modelled from inside).
+ * Menus, pop-ups and the game's 2D windows show on a flat floating screen.
+ * The radio voice: the game sometimes loses the radio voice for a whole session when it starts before
+   the game's speech program is ready (this happens without the mod too). The mod holds the radio calls
+   until the voice is ready, so the first call may come a little later than usual.
+
+IF SOMETHING GOES WRONG
+-----------------------
+ * No VR: make sure SteamVR was running BEFORE the airport loaded, or set VrMode to Always.
+ * The mod does not seem to load at all: check that "winhttp.dll" is next to "Tower! Simulator 3.exe"
+   and that the folder BepInEx\plugins\TowerSim3VR exists. Some antivirus programs wrongly flag
+   winhttp.dll (it is part of BepInEx, the standard mod loader); you may need to allow it.
+ * The mod writes a log to  BepInEx\LogOutput.log  in the game folder. If you report a problem, send
+   that file, and say what you were doing when it happened.
+ * Games with mods can behave differently after a game update. If the game updates and something
+   stops working, check for a new version of this mod.
+
+UNINSTALL
+---------
+ Delete the folder  BepInEx  and the files  winhttp.dll,  doorstop_config.ini  and  .doorstop_version
+ from the game folder. The game is then exactly as before.
+
+ To remove only the VR mod but keep the mod loader, delete  BepInEx\plugins\TowerSim3VR.
+
+CREDITS AND LICENCES
+--------------------
+ Built on BepInEx (LGPL-2.1), HarmonyX (MIT) and Valve's OpenVR API (BSD-3-Clause).
+ Not affiliated with FeelThere or Valve.

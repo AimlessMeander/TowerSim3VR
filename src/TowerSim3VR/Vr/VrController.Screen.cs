@@ -1,11 +1,12 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace TowerSim3VR
 {
     // The virtual screen (from NuclearesVR): the game's 2D interface is Screen Space - Overlay canvases that no
     // camera sees, so the monitor output is captured with ScreenCapture onto a quad in front of you. It shows
-    // by itself while a menu or pop-up is open (Escape menu, settings, questions, errors), and X shows or hides
+    // by itself while a menu or pop-up is open (Escape menu, settings, questions, errors), and A shows or hides
     // it at any time for the other 2D windows. While it shows, the monitor draws black behind the 2D interface
     // instead of the left eye, so the capture doesn't contain the screen itself.
     public partial class VrController
@@ -17,6 +18,8 @@ namespace TowerSim3VR
         bool screenToggled;
         bool menuOpen;
         float nextMenuCheck;
+        float nextPopupScan;
+        readonly List<GameObject> popups = new List<GameObject>();
 
         static readonly Type[] PopupTypes =
         {
@@ -24,7 +27,7 @@ namespace TowerSim3VR
             typeof(PopupProgress), typeof(PopupEnterpass), typeof(PopupBugreport), typeof(PopupUpdate), typeof(PopupMic),
         };
 
-        static bool MenuOrPopupOpen()
+        bool MenuOrPopupOpen()
         {
             var windows = LegacyWindows.instance;
             if (windows != null
@@ -33,9 +36,19 @@ namespace TowerSim3VR
             {
                 return true;
             }
-            foreach (var type in PopupTypes)
+            // The pop-ups are found (hidden ones included) now and then, and only checked for being shown in between.
+            if (Time.unscaledTime >= nextPopupScan)
             {
-                if (FindObjectOfType(type) != null) return true; // only finds active ones
+                nextPopupScan = Time.unscaledTime + 10f;
+                popups.Clear();
+                foreach (var type in PopupTypes)
+                {
+                    foreach (var popup in FindObjectsOfType(type, true)) popups.Add(((Component)popup).gameObject);
+                }
+            }
+            foreach (var popup in popups)
+            {
+                if (popup != null && popup.activeInHierarchy) return true;
             }
             return false;
         }
@@ -74,18 +87,17 @@ namespace TowerSim3VR
 
             screenQuad = GameObject.CreatePrimitive(PrimitiveType.Quad);
             screenQuad.name = "TowerSim3VR_Screen";
-            screenQuad.layer = vrLayer;
             Destroy(screenQuad.GetComponent<Collider>());
-            screenMaterial = new Material(Shader.Find("UI/Default")) { mainTexture = captureTexture, renderQueue = 3000 };
-            // Always on top of the scene, so a desk or wall between you and it can't hide a menu.
-            screenMaterial.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
+            if (screenMaterial == null)
+            {
+                screenMaterial = new Material(Shader.Find("UI/Default"));
+                screenMaterial.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
+            }
+            screenMaterial.mainTexture = captureTexture;
             var renderer = screenQuad.GetComponent<MeshRenderer>();
             renderer.sharedMaterial = screenMaterial;
-            renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            renderer.receiveShadows = false;
             RegisterOverlay(renderer, 0); // under the lasers
             screenQuad.SetActive(false);
-            Log.LogInfo($"Virtual screen set up ({Screen.width}x{Screen.height}, shader {screenMaterial.shader.name})");
         }
 
         // In front of where the head faces when it appears, then fixed there (relative to the body).
@@ -143,16 +155,6 @@ namespace TowerSim3VR
             screenQuad = null;
             if (captureTexture != null) { captureTexture.Release(); Destroy(captureTexture); }
             captureTexture = null;
-        }
-
-        // A layer no game camera renders, for the lasers and the screen; the eyes add it to their mask.
-        static int PickUnusedLayer(int gameMask)
-        {
-            for (int layer = 31; layer >= 8; layer--)
-            {
-                if (string.IsNullOrEmpty(LayerMask.LayerToName(layer)) && (gameMask & (1 << layer)) == 0) return layer;
-            }
-            return 31;
         }
     }
 }

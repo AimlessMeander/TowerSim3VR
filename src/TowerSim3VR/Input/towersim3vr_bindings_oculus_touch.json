@@ -1,4 +1,4 @@
-{
+﻿{
   "controller_type": "oculus_touch",
   "description": "Tower! Simulator 3 VR default bindings",
   "name": "Tower! Simulator 3 VR default",
@@ -11,8 +11,6 @@
       "sources": [
         { "path": "/user/hand/left/input/trigger", "mode": "button", "parameters": { "click_activate_threshold": "0.7", "click_deactivate_threshold": "0.6" }, "inputs": { "click": { "output": "/actions/main/in/TriggerLeft" } } },
         { "path": "/user/hand/right/input/trigger", "mode": "button", "parameters": { "click_activate_threshold": "0.7", "click_deactivate_threshold": "0.6" }, "inputs": { "click": { "output": "/actions/main/in/TriggerRight" } } },
-        { "path": "/user/hand/left/input/grip", "mode": "button", "parameters": { "click_activate_threshold": "0.7", "click_deactivate_threshold": "0.6" }, "inputs": { "click": { "output": "/actions/main/in/GripLeft" } } },
-        { "path": "/user/hand/right/input/grip", "mode": "button", "parameters": { "click_activate_threshold": "0.7", "click_deactivate_threshold": "0.6" }, "inputs": { "click": { "output": "/actions/main/in/GripRight" } } },
         { "path": "/user/hand/left/input/joystick", "mode": "joystick", "inputs": { "position": { "output": "/actions/main/in/Move" }, "click": { "output": "/actions/main/in/StickClickLeft" } } },
         { "path": "/user/hand/right/input/joystick", "mode": "joystick", "inputs": { "position": { "output": "/actions/main/in/Turn" }, "click": { "output": "/actions/main/in/StickClickRight" } } },
         { "path": "/user/hand/right/input/a", "mode": "button", "inputs": { "click": { "output": "/actions/main/in/ButtonA" } } },

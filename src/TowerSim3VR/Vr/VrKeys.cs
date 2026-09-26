@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using HarmonyLib;
 using UnityEngine;
 using UnityEngine.UI;
@@ -15,6 +15,7 @@ namespace TowerSim3VR
         static readonly HashSet<KeyCode> Held = new HashSet<KeyCode>();
         static readonly Dictionary<KeyCode, int> DownFrame = new Dictionary<KeyCode, int>();
         static readonly Dictionary<KeyCode, int> UpFrame = new Dictionary<KeyCode, int>();
+        static readonly List<KeyCode> Released = new List<KeyCode>();
 
         // Mouse buttons 0 (left) and 1 (right).
         static readonly bool[] ButtonHeld = new bool[2];
@@ -44,6 +45,7 @@ namespace TowerSim3VR
         internal static bool AimValid;
         internal static Vector3 AimOrigin;
         internal static Quaternion AimRotation = Quaternion.identity;
+        internal static Vector3 AimTarget; // where the laser meets the world
         internal static Transform AimCamera;
 
         internal static void Apply(HashSet<KeyCode> wanted)
@@ -53,13 +55,15 @@ namespace TowerSim3VR
             {
                 if (Held.Add(key)) DownFrame[key] = visibleFrame;
             }
-            foreach (var key in new List<KeyCode>(Held))
+            Released.Clear();
+            foreach (var key in Held)
             {
-                if (!wanted.Contains(key))
-                {
-                    Held.Remove(key);
-                    UpFrame[key] = visibleFrame;
-                }
+                if (!wanted.Contains(key)) Released.Add(key);
+            }
+            foreach (var key in Released)
+            {
+                Held.Remove(key);
+                UpFrame[key] = visibleFrame;
             }
         }
 
@@ -146,15 +150,43 @@ namespace TowerSim3VR
             public Vector2 Mouse;
         }
 
+        //
+        // Dragging (strips on the strip board): Unity only starts a drag once the pointer has moved from where the
+        // button went down, so while the left button is held the camera stays where the laser was at the press, and
+        // the mouse is where the laser's point now appears from there. The UI sees the pointer move, and the
+        // dragged item follows the laser's point on the board.
+        static bool anchored;
+        static Vector3 anchorPosition;
+        static Quaternion anchorRotation;
+
         [HarmonyPrefix, HarmonyPatch(typeof(UnityEngine.EventSystems.EventSystem), "Update")]
         static void EventSystemPrefix(out CameraSwap __state)
         {
             __state = default;
             var camera = VrKeys.AimCamera;
-            if (!VrKeys.AimValid || !VrKeys.WorldPointing || camera == null) return;
+            if (!VrKeys.AimValid || !VrKeys.WorldPointing || camera == null)
+            {
+                anchored = false;
+                return;
+            }
+            if (VrKeys.ButtonIsHeld(0))
+            {
+                if (!anchored)
+                {
+                    anchored = true;
+                    anchorPosition = VrKeys.AimOrigin;
+                    anchorRotation = VrKeys.AimRotation;
+                }
+            }
+            else
+            {
+                anchored = false;
+            }
             __state = new CameraSwap { Moved = true, Position = camera.position, Rotation = camera.rotation, Mouse = VrKeys.MousePosition };
-            camera.SetPositionAndRotation(VrKeys.AimOrigin, VrKeys.AimRotation);
-            VrKeys.MousePosition = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+            camera.SetPositionAndRotation(anchored ? anchorPosition : VrKeys.AimOrigin, anchored ? anchorRotation : VrKeys.AimRotation);
+            // With the camera on the laser this is the centre of the view; anchored, it moves with the laser.
+            var projected = camera.TryGetComponent<Camera>(out var cam) ? cam.WorldToScreenPoint(VrKeys.AimTarget) : Vector3.zero;
+            VrKeys.MousePosition = projected.z > 0f ? (Vector2)projected : new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
         }
 
         [HarmonyPostfix, HarmonyPatch(typeof(UnityEngine.EventSystems.EventSystem), "Update")]
