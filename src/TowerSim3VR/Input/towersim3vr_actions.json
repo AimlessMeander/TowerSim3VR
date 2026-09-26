@@ -1,4 +1,4 @@
-{
+﻿{
   "version": 1,
   "minimum_required_version": 1,
   "actions": [
@@ -31,16 +31,16 @@
       "/actions/main/in/PoseRight": "Right hand pointer",
       "/actions/main/in/TriggerLeft": "Left click (left hand)",
       "/actions/main/in/TriggerRight": "Left click (right hand)",
-      "/actions/main/in/GripLeft": "Right click (left hand)",
-      "/actions/main/in/GripRight": "Right click (right hand)",
+      "/actions/main/in/GripLeft": "Left grip (unused)",
+      "/actions/main/in/GripRight": "Right grip (unused)",
       "/actions/main/in/Move": "Move",
       "/actions/main/in/Turn": "Turn / up and down",
-      "/actions/main/in/ButtonA": "Push to talk",
-      "/actions/main/in/ButtonB": "Button B",
-      "/actions/main/in/ButtonX": "Show / hide the 2D screen",
+      "/actions/main/in/ButtonA": "Look at the airplane",
+      "/actions/main/in/ButtonB": "Show / hide the 2D screen",
+      "/actions/main/in/ButtonX": "Push to talk",
       "/actions/main/in/ButtonY": "Menu (Escape)",
       "/actions/main/in/StickClickLeft": "Move faster",
-      "/actions/main/in/StickClickRight": "Right stick click"
+      "/actions/main/in/StickClickRight": "Desk view (F1)"
     }
   ]
 }

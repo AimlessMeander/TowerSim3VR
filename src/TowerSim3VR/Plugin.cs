@@ -26,7 +26,7 @@ namespace TowerSim3VR
         internal static ConfigEntry<float> TurnSpeed;
         internal static ConfigEntry<float> LaserPitch;
         internal static ConfigEntry<float> RecenterHoldSeconds;
-        internal static ConfigEntry<KeyCode> KeyB;
+        internal static ConfigEntry<KeyCode> KeyRightStick;
         internal static ConfigEntry<KeyCode> KeyY;
         internal static ConfigEntry<float> ScreenDistance;
         internal static ConfigEntry<float> ScreenDown;
@@ -52,13 +52,13 @@ namespace TowerSim3VR
             MonitorShowsEye = Config.Bind("Rendering", "MonitorShowsEye", true,
                 "While VR runs, the monitor shows the left eye instead of the game rendering its camera a third time (faster).");
 
-            MoveSpeed = Config.Bind("Controllers", "MoveSpeed", 15f, "Left stick movement speed, metres per second.");
-            FastMoveMultiplier = Config.Bind("Controllers", "FastMoveMultiplier", 4f, "Speed multiplier while the left stick is clicked in.");
-            TurnSpeed = Config.Bind("Controllers", "TurnSpeed", 90f, "Right stick smooth turn speed, degrees per second.");
+            MoveSpeed = Config.Bind("Controllers", "MoveSpeed", 2f, "Left stick movement speed at full push, metres per second.");
+            FastMoveMultiplier = Config.Bind("Controllers", "FastMoveMultiplier", 30f, "Speed multiplier while the left stick is clicked in.");
+            TurnSpeed = Config.Bind("Controllers", "TurnSpeed", 45f, "Right stick smooth turn speed, degrees per second.");
             LaserPitch = Config.Bind("Controllers", "LaserPitch", 0f, "Tilts the lasers down (positive) or up (negative), degrees.");
             RecenterHoldSeconds = Config.Bind("Controllers", "RecenterHoldSeconds", 2f,
                 "Holding both triggers this long recentres the view (0 = off). The End key also recentres.");
-            KeyB = Config.Bind("Controllers", "KeyB", KeyCode.None, "Key held while B is held (None = nothing).");
+            KeyRightStick = Config.Bind("Controllers", "KeyRightStick", KeyCode.F1, "Key held while the right stick is clicked in (F1 = back to the desk view).");
             KeyY = Config.Bind("Controllers", "KeyY", KeyCode.Escape, "Key held while Y is held (Escape opens the game's menu).");
             ScreenDistance = Config.Bind("VirtualScreen", "Distance", 1.1f, "How far in front of you the 2D screen appears, metres.");
             ScreenDown = Config.Bind("VirtualScreen", "Down", 0.15f, "How far below eye level its centre is, metres.");

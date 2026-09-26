@@ -83,6 +83,7 @@ namespace TowerSim3VR
             renderer.sharedMaterial = screenMaterial;
             renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             renderer.receiveShadows = false;
+            DrawOnTop(renderer, 0); // under the lasers, over the game's desk displays
             screenQuad.SetActive(false);
             Log.LogInfo($"Virtual screen set up ({Screen.width}x{Screen.height}, shader {screenMaterial.shader.name})");
         }

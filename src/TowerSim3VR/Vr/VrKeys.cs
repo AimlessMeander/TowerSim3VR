@@ -38,6 +38,14 @@ namespace TowerSim3VR
         /// <summary>Extra "Mouse ScrollWheel" (radar zoom), from the right stick while pointing at a desk display.</summary>
         internal static float Scroll;
 
+        /// <summary>
+        /// The laser, for the UI event system while pointing into the world (see the EventSystem patch).
+        /// </summary>
+        internal static bool AimValid;
+        internal static Vector3 AimOrigin;
+        internal static Quaternion AimRotation = Quaternion.identity;
+        internal static Transform AimCamera;
+
         internal static void Apply(HashSet<KeyCode> wanted)
         {
             var visibleFrame = Time.frameCount + 1;
@@ -76,6 +84,8 @@ namespace TowerSim3VR
             MouseOverride = false;
             WorldPointing = false;
             Scroll = 0f;
+            AimValid = false;
+            AimCamera = null;
         }
 
         internal static bool IsHeld(KeyCode key) => Held.Contains(key);
@@ -121,6 +131,39 @@ namespace TowerSim3VR
         static void GetAxis(string axisName, ref float __result)
         {
             if (VrKeys.Scroll != 0f && axisName == "Mouse ScrollWheel") __result += VrKeys.Scroll;
+        }
+
+        // The desk panels (comms panel etc.) are world-space canvases, and Unity's GraphicRaycaster drops any
+        // pointer outside its event camera's view. The laser's point projected into the game camera often is
+        // (the game camera faces the airport, the panels are low on the desk), so clicks worked only sometimes.
+        // While the event system runs, the game camera is put on the laser with the mouse at the centre of its
+        // view (as NuclearesVR does for its tablet), then put back.
+        internal struct CameraSwap
+        {
+            public bool Moved;
+            public Vector3 Position;
+            public Quaternion Rotation;
+            public Vector2 Mouse;
+        }
+
+        [HarmonyPrefix, HarmonyPatch(typeof(UnityEngine.EventSystems.EventSystem), "Update")]
+        static void EventSystemPrefix(out CameraSwap __state)
+        {
+            __state = default;
+            var camera = VrKeys.AimCamera;
+            if (!VrKeys.AimValid || !VrKeys.WorldPointing || camera == null) return;
+            __state = new CameraSwap { Moved = true, Position = camera.position, Rotation = camera.rotation, Mouse = VrKeys.MousePosition };
+            camera.SetPositionAndRotation(VrKeys.AimOrigin, VrKeys.AimRotation);
+            VrKeys.MousePosition = new Vector2(Screen.width * 0.5f, Screen.height * 0.5f);
+        }
+
+        [HarmonyPostfix, HarmonyPatch(typeof(UnityEngine.EventSystems.EventSystem), "Update")]
+        static void EventSystemPostfix(CameraSwap __state)
+        {
+            if (!__state.Moved) return;
+            var camera = VrKeys.AimCamera;
+            if (camera != null) camera.SetPositionAndRotation(__state.Position, __state.Rotation);
+            VrKeys.MousePosition = __state.Mouse;
         }
 
         // While pointing into the world, the 2D overlay (screen-space) canvases ignore the pointer; world-space

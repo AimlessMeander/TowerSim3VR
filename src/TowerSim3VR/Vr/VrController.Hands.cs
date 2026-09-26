@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -11,7 +11,7 @@ namespace TowerSim3VR
 {
     // Motion controllers through SteamVR Input (manifest and Quest Touch bindings next to the DLL; anyone can
     // remap in SteamVR's binding screen). As in NuclearesVR: one laser per hand, the last hand to pull its
-    // trigger points, trigger is the left mouse button, grip the right one, sticks move and turn.
+    // trigger points, trigger is the left mouse button, sticks move and turn. Buttons: X push to talk, A look at the airplane, Y menu, B the 2D screen, right stick click F1 (desk view).
     //
     // Pointing into the world: the game does every 3D click (radar screens, aircraft tags, picking aircraft)
     // from Camera.main.ScreenPointToRay(Input.mousePosition), and the radar screens work out the position on
@@ -41,7 +41,7 @@ namespace TowerSim3VR
         GameObject leftLaser, rightLaser;
         Material laserIdle, laserActive, dotIdle, dotActive;
         bool activeHandIsRight = true;
-        bool previousLeftTrigger, previousRightTrigger, previousX;
+        bool previousLeftTrigger, previousRightTrigger, previousB;
         bool pointingAtDesk;
         readonly HashSet<KeyCode> wantedKeys = new HashSet<KeyCode>();
         float bothTriggersSince = -1f;
@@ -200,13 +200,19 @@ namespace TowerSim3VR
 
             VrKeys.MouseOverride = onScreen || inWorld;
             VrKeys.WorldPointing = inWorld;
+            VrKeys.AimValid = inWorld;
+            if (inWorld)
+            {
+                VrKeys.AimOrigin = hand.Position;
+                VrKeys.AimRotation = hand.Rotation;
+                VrKeys.AimCamera = source.transform;
+            }
             bool pointing = onScreen || inWorld;
             // On the 2D screen with the new Input System's UI module, the real cursor and a real click do it
             // (that module reads the mouse device, not Input); otherwise the patched buttons do.
             bool realClick = onScreen && uiUsesInputSystem && Application.isFocused;
             SetRealLeftButton(realClick && hand.Trigger);
             VrKeys.SetMouseButton(0, pointing && !realClick && hand.Trigger);
-            VrKeys.SetMouseButton(1, pointing && (leftHand.Grip || rightHand.Grip));
 
             ShowLaser(leftLaser, leftHand, !activeHandIsRight, activeHandIsRight ? LaserIdleLength : activeLength);
             ShowLaser(rightLaser, rightHand, activeHandIsRight, activeHandIsRight ? activeLength : LaserIdleLength);
@@ -215,18 +221,20 @@ namespace TowerSim3VR
         void UpdateButtons()
         {
             wantedKeys.Clear();
-            // A holds the game's push-to-talk key (Settings, default Left Ctrl) for speech recognition.
-            if (buttonA) wantedKeys.Add(GameSettings.Get("key_push_to_talk", KeyCode.LeftControl));
-            if (buttonB && Plugin.KeyB.Value != KeyCode.None) wantedKeys.Add(Plugin.KeyB.Value);
+            // X holds the game's push-to-talk key and A its "look at the airplane" key, both read from the game's
+            // settings so they follow any change made there.
+            if (buttonX) wantedKeys.Add(GameSettings.Get("key_push_to_talk", KeyCode.LeftControl));
+            if (buttonA) wantedKeys.Add(GameSettings.Get("key_push_to_look", KeyCode.Home));
             if (buttonY && Plugin.KeyY.Value != KeyCode.None) wantedKeys.Add(Plugin.KeyY.Value);
+            if (rightHand.StickClick && Plugin.KeyRightStick.Value != KeyCode.None) wantedKeys.Add(Plugin.KeyRightStick.Value);
             VrKeys.Apply(wantedKeys);
 
-            if (buttonX && !previousX)
+            if (buttonB && !previousB)
             {
                 screenToggled = !screenToggled;
                 Log.LogInfo(screenToggled ? "2D screen shown" : "2D screen hidden");
             }
-            previousX = buttonX;
+            previousB = buttonB;
 
             // Holding both triggers recentres (once per hold).
             if (leftHand.Trigger && rightHand.Trigger && Plugin.RecenterHoldSeconds.Value > 0f)
@@ -257,14 +265,14 @@ namespace TowerSim3VR
 
             float dt = Time.unscaledDeltaTime;
             float speed = Plugin.MoveSpeed.Value * (leftHand.StickClick ? Plugin.FastMoveMultiplier.Value : 1f);
-            var stick = new Vector3(Deadzone(moveStick.x), pointingAtDesk ? 0f : Deadzone(turnStick.y), Deadzone(moveStick.y));
+            var stick = new Vector3(Curve(moveStick.x), pointingAtDesk ? 0f : Curve(turnStick.y), Curve(moveStick.y));
             if (stick != Vector3.zero)
             {
                 // Level along where the head faces; right stick up/down is straight up and down.
                 var level = Quaternion.Euler(0f, LevelMovement.HeadYaw, 0f) * new Vector3(stick.x, 0f, stick.z);
                 desk.target_pos += (level + Vector3.up * stick.y) * speed * dt;
             }
-            var turn = Deadzone(turnStick.x);
+            var turn = Curve(turnStick.x);
             if (turn != 0f)
             {
                 desk.target_rot = Quaternion.Euler(0f, turn * Plugin.TurnSpeed.Value * dt, 0f) * desk.target_rot;
@@ -272,6 +280,13 @@ namespace TowerSim3VR
         }
 
         static float Deadzone(float v) => Mathf.Abs(v) > StickDeadzone ? v : 0f;
+
+        // Past the dead zone, rescaled to 0..1 and squared: a small push is slow, a full push full speed.
+        static float Curve(float v)
+        {
+            var magnitude = Mathf.InverseLerp(StickDeadzone, 1f, Mathf.Abs(v));
+            return Mathf.Sign(v) * magnitude * magnitude;
+        }
 
         // ---- world-space canvases (the desk displays) ----
 
@@ -311,11 +326,14 @@ namespace TowerSim3VR
         {
             if (laserIdle == null)
             {
-                laserIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 0.6f));
-                laserActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f));
-                // The dot draws over everything, so screen glass or a bezel can't hide where you point.
-                dotIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 1f), onTop: true);
-                dotActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), onTop: true);
+                // The whole laser draws over everything (see DrawOnTop). The beam ends at the first thing it
+                // meets, so nothing solid lies between the hand and its end anyway. (Queue 4000 and up is not
+                // drawn by HDRP at all.)
+                laserIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 0.6f), 3100);
+                laserActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), 3100);
+                dotIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 1f), 3101);
+                LogSortingOnce();
+                dotActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), 3101);
             }
             if (leftLaser == null) leftLaser = MakeLaser();
             if (rightLaser == null) rightLaser = MakeLaser();
@@ -337,8 +355,34 @@ namespace TowerSim3VR
                 renderer.sharedMaterial = laserIdle;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
+                DrawOnTop(renderer, 1);
             }
             return root;
+        }
+
+        // The game's desk displays (world-space canvases) drew over the lasers and the menu screen even in
+        // front of them: see-through objects are drawn by sorting layer first, before render queue and
+        // distance, and the canvases are on a later layer than Default. So the mod's objects go on the last
+        // sorting layer with the highest order in it; the materials don't test depth.
+        // Diagnostics for the drawing order: the sorting layers, and how the desk canvases are set up.
+        void LogSortingOnce()
+        {
+            var names = new List<string>();
+            foreach (var layer in SortingLayer.layers) names.Add($"{layer.name}({layer.value})");
+            Log.LogInfo($"Sorting layers: {string.Join(", ", names)}");
+            foreach (var canvas in FindObjectsOfType<Canvas>())
+            {
+                if (!canvas.isRootCanvas || canvas.renderMode != RenderMode.WorldSpace) continue;
+                Log.LogInfo($"World canvas '{canvas.name}': layer {canvas.sortingLayerName}, order {canvas.sortingOrder}, "
+                    + $"override {canvas.overrideSorting}, camera {(canvas.worldCamera ? canvas.worldCamera.name : "none")}");
+            }
+        }
+
+        static void DrawOnTop(Renderer renderer, int order)
+        {
+            var layers = SortingLayer.layers;
+            if (layers.Length > 0) renderer.sortingLayerID = layers[layers.Length - 1].id;
+            renderer.sortingOrder = short.MaxValue - 10 + order;
         }
 
         void ShowLaser(GameObject laser, Hand hand, bool active, float length)
@@ -358,10 +402,10 @@ namespace TowerSim3VR
         }
 
         // UI/Default is always in a build and HDRP draws it unlit and without exposure, like world-space UI.
-        static Material MakeUnlitColor(Color color, bool onTop = false)
+        static Material MakeUnlitColor(Color color, int renderQueue)
         {
-            var material = new Material(Shader.Find("UI/Default")) { color = color, renderQueue = onTop ? 3002 : 3001 };
-            material.SetInt("unity_GUIZTestMode", (int)(onTop ? UnityEngine.Rendering.CompareFunction.Always : UnityEngine.Rendering.CompareFunction.LessEqual));
+            var material = new Material(Shader.Find("UI/Default")) { color = color, renderQueue = renderQueue };
+            material.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
             return material;
         }
 

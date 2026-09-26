@@ -134,6 +134,7 @@ namespace TowerSim3VR
                 Log.LogInfo("Controller running");
             }
             UpdateAutoStart();
+            RadioDiagnostics.Update();
             var kb = Keyboard.current;
             if (kb != null)
             {
