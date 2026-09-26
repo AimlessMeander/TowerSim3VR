@@ -1,4 +1,4 @@
-# TowerSim3VR
+﻿# TowerSim3VR
 
 An unofficial VR mod for [Tower! Simulator 3](https://store.steampowered.com/app/2176130) (Steam, Windows): play
 from the tower cab in a SteamVR headset, with head tracking and motion controllers. The game has no VR support
@@ -10,6 +10,8 @@ at 90 Hz). Please report problems as GitHub issues, with `BepInEx\LogOutput.log`
 
 ## Features
 
+- **Removes the long intro video** that otherwise plays every time the game starts, in VR and on the monitor.
+  The game goes straight to the main menu. (Set `SkipIntro = false` in the settings to get it back.)
 - Stereo 3D with head tracking. VR starts by itself when an airport has loaded (if SteamVR is running) and
   stops when you leave it, so the game's menus stay on the monitor.
 - Laser pointers on both controllers: click and drag on the radar screens, the strip board and the comms panel,
@@ -18,7 +20,6 @@ at 90 Hz). Please report problems as GitHub issues, with `BepInEx\LogOutput.log`
 - Binoculars: hold Y to look at the selected aircraft and zoom with the right stick, with a steadied view and a
   binocular frame.
 - Fixes a game bug (present without the mod too) that could leave the radio voice silent for a whole session.
-- Skips the intro video.
 
 ## Install
 

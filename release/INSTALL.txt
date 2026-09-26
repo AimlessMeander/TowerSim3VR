@@ -1,8 +1,11 @@
-TOWER! SIMULATOR 3 VR MOD  -  install guide
+﻿TOWER! SIMULATOR 3 VR MOD  -  install guide
 =============================================
 
 This is an unofficial mod that lets you play Tower! Simulator 3 (Steam) in a VR headset through SteamVR,
 with head tracking and motion controllers. The game itself has no VR support; this adds it.
+
+The mod also removes the long intro video that otherwise plays every time the game starts (in VR and on the
+monitor): the game goes straight to the main menu. To get the video back, set SkipIntro to false (see SETTINGS).
 
 This is a test version for playtesting. Please report anything that doesn't work (see the end).
 
@@ -73,7 +76,7 @@ SETTINGS
    VrMode ............... Auto (default): VR only if SteamVR is already running.
                           Always: start VR (and SteamVR) when an airport loads.  Never: no VR
                           (Ctrl+Shift+V still switches it on).
-   SkipIntro ............ Skips the intro video (default true).
+   SkipIntro ............ Removes the long intro video at startup (default true). Set false to see it.
    RenderScale .......... Picture sharpness (default 1.0). Lower it (0.8 - 0.9) if the picture
                           stutters, raise it if your graphics card can take it.
    EyeAntialiasing ...... Edge smoothing in the headset. TemporalAntialiasing blurs when you move.
