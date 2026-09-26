@@ -29,7 +29,7 @@ namespace TowerSim3VR
         internal static ConfigEntry<KeyCode> KeyRightStick;
         internal static ConfigEntry<float> MaxZoom;
         internal static ConfigEntry<float> ZoomSpeed;
-        internal static ConfigEntry<KeyCode> KeyY;
+        internal static ConfigEntry<KeyCode> KeyB;
         internal static ConfigEntry<float> ScreenDistance;
         internal static ConfigEntry<float> ScreenDown;
         internal static ConfigEntry<float> ScreenHeight;
@@ -61,9 +61,9 @@ namespace TowerSim3VR
             RecenterHoldSeconds = Config.Bind("Controllers", "RecenterHoldSeconds", 2f,
                 "Holding both triggers this long recentres the view (0 = off). The End key also recentres.");
             KeyRightStick = Config.Bind("Controllers", "KeyRightStick", KeyCode.F1, "Key held while the right stick is clicked in (F1 = back to the desk view).");
-            MaxZoom = Config.Bind("Controllers", "MaxZoom", 8f, "Largest binocular zoom (right stick while A is held), times magnification.");
+            MaxZoom = Config.Bind("Controllers", "MaxZoom", 8f, "Largest binocular zoom (right stick while Y is held), times magnification.");
             ZoomSpeed = Config.Bind("Controllers", "ZoomSpeed", 1.5f, "How fast the binocular zoom changes at full stick, doublings per second.");
-            KeyY = Config.Bind("Controllers", "KeyY", KeyCode.Escape, "Key held while Y is held (Escape opens the game's menu).");
+            KeyB = Config.Bind("Controllers", "KeyB", KeyCode.Escape, "Key held while B is held (Escape opens the game's menu).");
             ScreenDistance = Config.Bind("VirtualScreen", "Distance", 1.1f, "How far in front of you the 2D screen appears, metres.");
             ScreenDown = Config.Bind("VirtualScreen", "Down", 0.15f, "How far below eye level its centre is, metres.");
             ScreenHeight = Config.Bind("VirtualScreen", "Height", 0.8f, "Its height, metres (the width follows the window's shape).");

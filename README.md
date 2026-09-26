@@ -1,4 +1,4 @@
-# TowerSim3VR
+﻿# TowerSim3VR
 
 An unofficial VR mod for [Tower! Simulator 3](https://store.steampowered.com/app/2176130) (Unity 2022.3,
 Mono, HDRP, Direct3D 11), built as a [BepInEx](https://github.com/BepInEx/BepInEx) 5 plugin in the style of
@@ -24,11 +24,11 @@ beyond 10 m, and the cab is modelled to be seen from inside).
 | --- | --- |
 | Trigger | Left click. The hand that last pulled its trigger has the laser; the other shows a small ball. |
 | Left stick | Move level, where you look. Click in for fast travel. |
-| Right stick | Left/right turns. Up/down: move up and down; zooms a radar screen while pointing at it; binocular zoom while A is held. |
+| Right stick | Left/right turns. Up/down: move up and down; zooms a radar screen while pointing at it; binocular zoom while Y is held. |
 | X (hold) | Push to talk (the game's push-to-talk key) |
-| A (hold) | Look at the airplane (the game's look key) |
-| Y | Menu (Escape) |
-| B | Show / hide the 2D screen (the game's 2D windows) |
+| Y (hold) | Look at the airplane (the game's look key); the right stick zooms |
+| B | Menu (Escape) |
+| A | Show / hide the 2D screen (the game's 2D windows) |
 | Right stick click | Desk view (F1) |
 | Both triggers for 2 s | Recentre |
 

@@ -11,7 +11,7 @@ namespace TowerSim3VR
 {
     // Motion controllers through SteamVR Input (manifest and Quest Touch bindings next to the DLL; anyone can
     // remap in SteamVR's binding screen). As in NuclearesVR: one laser per hand, the last hand to pull its
-    // trigger points, trigger is the left mouse button, sticks move and turn. Buttons: X push to talk, A look at the airplane, Y menu, B the 2D screen, right stick click F1 (desk view).
+    // trigger points, trigger is the left mouse button, sticks move and turn. Buttons: X push to talk, Y look at the airplane, B menu, A the 2D screen, right stick click F1 (desk view).
     //
     // Pointing into the world: the game does every 3D click (radar screens, aircraft tags, picking aircraft)
     // from Camera.main.ScreenPointToRay(Input.mousePosition), and the radar screens work out the position on
@@ -39,9 +39,12 @@ namespace TowerSim3VR
         static readonly uint PoseSize = (uint)Marshal.SizeOf(typeof(InputPoseActionData_t));
 
         GameObject leftLaser, rightLaser;
-        Material laserIdle, laserActive, dotIdle, dotActive;
+        Material laserIdle, laserActive, dotIdle, dotActive, handBall;
         bool activeHandIsRight = true;
-        bool previousLeftTrigger, previousRightTrigger, previousB;
+        bool previousLeftTrigger, previousRightTrigger, previousA;
+        bool loggedBall;
+        // Y held: looking at the airplane (the game's look key), which also makes the right stick the binocular zoom.
+        bool Looking => buttonY;
         bool pointingAtDesk;
         readonly HashSet<KeyCode> wantedKeys = new HashSet<KeyCode>();
         float bothTriggersSince = -1f;
@@ -221,20 +224,20 @@ namespace TowerSim3VR
         void UpdateButtons()
         {
             wantedKeys.Clear();
-            // X holds the game's push-to-talk key and A its "look at the airplane" key, both read from the game's
-            // settings so they follow any change made there.
+            // X holds the game's push-to-talk key and Y its "look at the airplane" key, both read from the game's
+            // settings so they follow any change made there. B is the menu key (Escape).
             if (buttonX) wantedKeys.Add(GameSettings.Get("key_push_to_talk", KeyCode.LeftControl));
-            if (buttonA) wantedKeys.Add(GameSettings.Get("key_push_to_look", KeyCode.Home));
-            if (buttonY && Plugin.KeyY.Value != KeyCode.None) wantedKeys.Add(Plugin.KeyY.Value);
+            if (buttonY) wantedKeys.Add(GameSettings.Get("key_push_to_look", KeyCode.Home));
+            if (buttonB && Plugin.KeyB.Value != KeyCode.None) wantedKeys.Add(Plugin.KeyB.Value);
             if (rightHand.StickClick && Plugin.KeyRightStick.Value != KeyCode.None) wantedKeys.Add(Plugin.KeyRightStick.Value);
             VrKeys.Apply(wantedKeys);
 
-            if (buttonB && !previousB)
+            if (buttonA && !previousA)
             {
                 screenToggled = !screenToggled;
                 Log.LogInfo(screenToggled ? "2D screen shown" : "2D screen hidden");
             }
-            previousB = buttonB;
+            previousA = buttonA;
 
             // Holding both triggers recentres (once per hold).
             if (leftHand.Trigger && rightHand.Trigger && Plugin.RecenterHoldSeconds.Value > 0f)
@@ -253,8 +256,8 @@ namespace TowerSim3VR
             }
 
             // Right stick up/down zooms a radar screen while the laser is on it (the mouse wheel); while A is held
-            // (looking at the airplane) it is the binocular zoom instead.
-            VrKeys.Scroll = !buttonA && pointingAtDesk && Mathf.Abs(turnStick.y) > StickDeadzone ? turnStick.y * 0.05f : 0f;
+            // (Y, looking at the airplane) it is the binocular zoom instead.
+            VrKeys.Scroll = !Looking && pointingAtDesk && Mathf.Abs(turnStick.y) > StickDeadzone ? turnStick.y * 0.05f : 0f;
         }
 
         // ---- binocular zoom while looking at the airplane ----
@@ -269,7 +272,7 @@ namespace TowerSim3VR
         void UpdateZoom()
         {
             float dt = Time.unscaledDeltaTime;
-            if (buttonA && !screenVisible)
+            if (Looking && !screenVisible)
             {
                 var push = Curve(turnStick.y);
                 if (push != 0f) zoomTarget *= Mathf.Pow(2f, push * Plugin.ZoomSpeed.Value * dt);
@@ -311,8 +314,8 @@ namespace TowerSim3VR
 
             float dt = Time.unscaledDeltaTime;
             float speed = Plugin.MoveSpeed.Value * (leftHand.StickClick ? Plugin.FastMoveMultiplier.Value : 1f);
-            // Right stick up/down is the zoom while A is held, and a radar screen's zoom while pointing at one.
-            var stick = new Vector3(Curve(moveStick.x), pointingAtDesk || buttonA ? 0f : Curve(turnStick.y), Curve(moveStick.y));
+            // Right stick up/down is the zoom while Y is held, and a radar screen's zoom while pointing at one.
+            var stick = new Vector3(Curve(moveStick.x), pointingAtDesk || Looking ? 0f : Curve(turnStick.y), Curve(moveStick.y));
             if (stick != Vector3.zero)
             {
                 // Level along where the head faces; right stick up/down is straight up and down.
@@ -381,6 +384,7 @@ namespace TowerSim3VR
                 dotIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 1f), 3101);
                 LogSortingOnce();
                 dotActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), 3101);
+                handBall = MakeUnlitColor(new Color(0.9f, 0.95f, 1f, 1f), 3101);
             }
             if (leftLaser == null) leftLaser = MakeLaser();
             if (rightLaser == null) rightLaser = MakeLaser();
@@ -444,9 +448,16 @@ namespace TowerSim3VR
             if (beam.gameObject.activeSelf != active) beam.gameObject.SetActive(active);
             if (!active)
             {
-                dot.localPosition = Vector3.zero;
-                dot.localScale = Vector3.one * 0.03f;
-                dot.GetComponent<MeshRenderer>().sharedMaterial = dotIdle;
+                // A little in front of the pointer's origin, white so it isn't mistaken for a laser dot.
+                dot.localPosition = new Vector3(0f, 0f, 0.05f);
+                dot.localScale = Vector3.one * 0.04f;
+                dot.GetComponent<MeshRenderer>().sharedMaterial = handBall;
+                if (!loggedBall && head != null)
+                {
+                    loggedBall = true;
+                    Log.LogInfo($"Inactive hand ball: {Vector3.Distance(dot.position, head.position):F2} m from the head, "
+                        + $"shown {dot.gameObject.activeInHierarchy}, eye near plane {eyeNear}");
+                }
                 return;
             }
             beam.localPosition = new Vector3(0f, 0f, length * 0.5f);
@@ -515,7 +526,7 @@ namespace TowerSim3VR
             inputReady = false;
             leftHand = rightHand = default;
             screenToggled = false;
-            buttonA = false;
+            buttonY = false;
             RestoreZoom();
         }
     }

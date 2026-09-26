@@ -35,10 +35,10 @@
       "/actions/main/in/GripRight": "Right grip (unused)",
       "/actions/main/in/Move": "Move",
       "/actions/main/in/Turn": "Turn / up and down",
-      "/actions/main/in/ButtonA": "Look at the airplane",
-      "/actions/main/in/ButtonB": "Show / hide the 2D screen",
+      "/actions/main/in/ButtonA": "Show / hide the 2D screen",
+      "/actions/main/in/ButtonB": "Menu (Escape)",
       "/actions/main/in/ButtonX": "Push to talk",
-      "/actions/main/in/ButtonY": "Menu (Escape)",
+      "/actions/main/in/ButtonY": "Look at the airplane (right stick zooms)",
       "/actions/main/in/StickClickLeft": "Move faster",
       "/actions/main/in/StickClickRight": "Desk view (F1)"
     }
