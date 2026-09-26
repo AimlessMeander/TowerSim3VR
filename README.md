@@ -12,7 +12,8 @@ Working and in use:
   running, and stops when you leave the airport.
 - Motion controllers with laser pointers: the radar screens, strip board, comms panel and aircraft in the world
   all take clicks. Menus and pop-ups show on a floating virtual screen.
-- Stick movement over the whole airport, smooth turning, binocular zoom when looking at an aircraft.
+- Stick movement over the whole airport, smooth turning, steadied binocular zoom with a binocular frame when looking
+  at an aircraft.
 - Fixes a game bug that left the radio voice silent for a whole session (see below). The intro video is skipped.
 
 Known limits: the tower cab and its monitors vanish when you move outside the tower (the game hides the monitors
@@ -49,8 +50,10 @@ already running), Always (also launches SteamVR), Never (Ctrl+Shift+V only).
   reported as the mouse position, and the controllers' buttons as keys and mouse buttons (Harmony patches on the
   legacy `Input`). Lasers stop on world-space canvases (the desk displays have no colliders). For Unity's UI event
   system the game camera is briefly put on the laser, because `GraphicRaycaster` drops pointers outside its view.
-- **Drawing on top**: the lasers and the virtual screen use `UI/Default` on the last sorting layer; the desk
-  canvases are on a later sorting layer than Default and otherwise draw over them. HDRP skips queue 4000 and up.
+- **The mod's own objects** (`Vr/VrController.Overlay.cs`): lasers, the inactive hand's stub, the virtual screen and
+  the binocular frame are not drawn by HDRP (it drew the desk displays and other scene parts over them whatever their
+  sorting). A command buffer draws them straight into each eye image at the end of the frame, over everything; the
+  binocular frame without the zoom. A grip press saves the left eye image to `BepInEx/TowerSim3VR_eye_N.png`.
 - **Virtual screen** (`Vr/VrController.Screen.cs`): `ScreenCapture` of the monitor onto a quad, shown while a menu or
   pop-up is open (or with B); the monitor draws black behind the 2D interface meanwhile.
 - **Radio fix** (`RadioStartFix.cs`): unmodded, the first radio call can go out before the separate TTS program has
