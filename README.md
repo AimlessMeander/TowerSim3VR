@@ -30,6 +30,13 @@ BepInEx 5.4.23.5 is installed in the game folder. Logs: `<game>/BepInEx/LogOutpu
 `reference/` (gitignored) holds ilspycmd decompiles of the game and HDRP assemblies. The game's own code is
 obfuscated.
 
+## Starting and stopping
+
+VR starts by itself once an airport has fully loaded, and stops 1.5 s after you leave it, so menus stay an
+ordinary desktop window (as in NuclearesVR). `VrMode`: Auto (default) starts only if SteamVR is already running,
+so monitor play never launches SteamVR; Always also launches SteamVR; Never leaves it to Ctrl+Shift+V.
+Shutdown stops submitting, shuts OpenVR down, then frees the eye textures (freeing them earlier can crash the driver).
+
 ## Keys
 
 | Key | What |

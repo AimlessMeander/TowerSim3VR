@@ -38,22 +38,89 @@ namespace TowerSim3VR
         bool needsRecenter = true;
         bool loggedUpdate;
 
+        // Automatic start/stop, as in NuclearesVR: VR starts once per airport load when the game is fully
+        // loaded (and, in Auto mode, SteamVR is already running), and stops once the game has been left
+        // for LeaveGameGraceSeconds, so menus are an ordinary desktop window.
+        const float LeaveGameGraceSeconds = 1.5f;
+        bool decidedThisGame;
+        bool shuttingDown;
+        float notInGameSince = -1f;
+
         void Awake()
         {
             SceneManager.sceneLoaded += (scene, mode) => Log.LogInfo($"Scene loaded: {scene.name} (#{scene.buildIndex}, {mode})");
             Application.onBeforeRender += OnBeforeRender;
             StartCoroutine(SubmitLoop());
-            if (Plugin.AutoStart.Value)
-            {
-                StartCoroutine(AutoStart());
-            }
-            Log.LogInfo("TowerSim3VR loaded. Ctrl+Shift+V starts/stops VR, End recenters.");
+            Log.LogInfo($"TowerSim3VR loaded (VrMode {Plugin.Mode.Value}). Ctrl+Shift+V starts/stops VR, End recenters.");
         }
 
-        IEnumerator AutoStart()
+        // The same test the game's camera controller uses before it lets the camera move.
+        static bool InGame()
         {
-            yield return new WaitForSecondsRealtime(Plugin.AutoStartDelay.Value);
-            StartVr();
+            var game = Game.instance;
+            return game != null && !game.loading && game.loadingcnt >= Game.LOAD_FINISHED;
+        }
+
+        // Starting OpenVR launches SteamVR if it isn't running, which nobody wants when playing on the monitor.
+        static bool VrWanted(out string reason)
+        {
+            reason = "";
+            switch (Plugin.Mode.Value)
+            {
+                case VrMode.Never:
+                    reason = "VrMode is Never";
+                    return false;
+                case VrMode.Always:
+                    return true;
+                default:
+                    try
+                    {
+                        if (System.Diagnostics.Process.GetProcessesByName("vrserver").Length > 0) return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.LogWarning($"Could not check whether SteamVR is running ({ex.Message}); assuming it is");
+                        return true;
+                    }
+                    reason = "SteamVR is not running (VrMode Always would launch it)";
+                    return false;
+            }
+        }
+
+        void UpdateAutoStart()
+        {
+            if (InGame())
+            {
+                notInGameSince = -1f;
+                if (!decidedThisGame && !running && !shuttingDown)
+                {
+                    decidedThisGame = true;
+                    if (VrWanted(out var reason))
+                    {
+                        Log.LogInfo("Airport loaded - starting VR");
+                        StartVr();
+                    }
+                    else
+                    {
+                        Log.LogInfo($"Airport loaded - not starting VR: {reason}");
+                    }
+                }
+                return;
+            }
+
+            if (notInGameSince < 0f)
+            {
+                notInGameSince = Time.unscaledTime;
+            }
+            else if (Time.unscaledTime - notInGameSince > LeaveGameGraceSeconds)
+            {
+                decidedThisGame = false;
+                if (running)
+                {
+                    Log.LogInfo("Left the airport - leaving VR");
+                    StopVr();
+                }
+            }
         }
 
         void Update()
@@ -63,13 +130,14 @@ namespace TowerSim3VR
                 loggedUpdate = true;
                 Log.LogInfo("Controller running");
             }
+            UpdateAutoStart();
             var kb = Keyboard.current;
             if (kb != null)
             {
                 bool ctrlShift = kb.ctrlKey.isPressed && kb.shiftKey.isPressed;
                 if (ctrlShift && kb.vKey.wasPressedThisFrame)
                 {
-                    if (running) StopVr(); else StartVr();
+                    if (running) StopVr(); else if (!shuttingDown) StartVr();
                 }
                 if (ctrlShift && kb.fKey.wasPressedThisFrame)
                 {
@@ -137,7 +205,9 @@ namespace TowerSim3VR
             return tex;
         }
 
-        void StopVr()
+        // Order matters (learned in NuclearesVR): stop submitting, shut OpenVR down, and only then free the
+        // eye textures - freeing them while the compositor may still read them crashes the graphics driver.
+        void StopVr(bool immediate = false)
         {
             if (!running) return;
             running = false;
@@ -145,14 +215,46 @@ namespace TowerSim3VR
             DestroyEyes();
             if (head != null) Destroy(head.gameObject);
             head = null;
-            if (leftTex != null) leftTex.Release();
-            if (rightTex != null) rightTex.Release();
-            leftTex = rightTex = null;
             GraphicsOverrides.Restore();
             FramePacing.Restore();
-            OpenVR.Shutdown();
+            if (immediate)
+            {
+                OpenVR.Shutdown();
+                system = null;
+                ReleaseEyeTextures();
+                return;
+            }
+            shuttingDown = true;
+            StartCoroutine(FinishShutdown());
+        }
+
+        IEnumerator FinishShutdown()
+        {
+            // Let the camera destruction and any in-flight frame finish.
+            yield return null;
+            yield return null;
+            yield return new WaitForEndOfFrame();
+            try
+            {
+                OpenVR.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                Log.LogError($"OpenVR.Shutdown threw: {ex}");
+            }
             system = null;
+            yield return null;
+            yield return null;
+            ReleaseEyeTextures();
+            shuttingDown = false;
             Log.LogInfo("VR stopped");
+        }
+
+        void ReleaseEyeTextures()
+        {
+            if (leftTex != null) { leftTex.Release(); Destroy(leftTex); }
+            if (rightTex != null) { rightTex.Release(); Destroy(rightTex); }
+            leftTex = rightTex = null;
         }
 
         void BuildEyes(Camera main)
@@ -323,7 +425,7 @@ namespace TowerSim3VR
         void OnDestroy()
         {
             Application.onBeforeRender -= OnBeforeRender;
-            StopVr();
+            StopVr(immediate: true);
         }
     }
 }

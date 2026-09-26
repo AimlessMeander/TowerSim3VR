@@ -7,13 +7,14 @@ using UnityEngine.Rendering.HighDefinition;
 
 namespace TowerSim3VR
 {
-    [BepInPlugin("com.mjh.towersim3vr", "TowerSim3VR", "0.2.0")]
+    public enum VrMode { Auto, Always, Never }
+
+    [BepInPlugin("com.mjh.towersim3vr", "TowerSim3VR", "0.3.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
 
-        internal static ConfigEntry<bool> AutoStart;
-        internal static ConfigEntry<float> AutoStartDelay;
+        internal static ConfigEntry<VrMode> Mode;
         internal static ConfigEntry<bool> YawOnly;
         internal static ConfigEntry<bool> LevelMovement;
         internal static ConfigEntry<float> RenderScale;
@@ -25,9 +26,9 @@ namespace TowerSim3VR
         {
             Log = Logger;
             SkipIntro.Enabled = Config.Bind("General", "SkipIntro", true, "Skip the intro video at startup.").Value;
-            AutoStart = Config.Bind("General", "AutoStart", false,
-                "Start VR automatically AutoStartDelay seconds after launch. Otherwise press Ctrl+Shift+V.");
-            AutoStartDelay = Config.Bind("General", "AutoStartDelay", 5f, "Seconds after launch before VR starts (AutoStart only).");
+            Mode = Config.Bind("General", "VrMode", VrMode.Auto,
+                "When VR starts by itself on loading an airport (it stops when you leave). Auto: only if SteamVR is "
+                + "already running. Always: also launches SteamVR. Never: only with Ctrl+Shift+V.");
             YawOnly = Config.Bind("Tracking", "YawOnly", true,
                 "Ignore the game camera's pitch and roll so the horizon stays level; your head supplies them.");
             LevelMovement = Config.Bind("Tracking", "LevelMovement", true,
