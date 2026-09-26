@@ -149,6 +149,11 @@ namespace TowerSim3VR
                     Plugin.FlipEyes.Value = !Plugin.FlipEyes.Value;
                     Log.LogInfo($"FlipEyes = {Plugin.FlipEyes.Value}");
                 }
+                if (ctrlShift && kb.oKey.wasPressedThisFrame)
+                {
+                    Plugin.OverlayFlip.Value = !Plugin.OverlayFlip.Value;
+                    Log.LogInfo($"OverlayFlip = {Plugin.OverlayFlip.Value}");
+                }
                 if (ctrlShift && kb.cKey.wasPressedThisFrame)
                 {
                     DumpCameras();
@@ -162,6 +167,8 @@ namespace TowerSim3VR
             {
                 UpdateSticks();
                 UpdateZoom();
+                UpdateBinocularMask();
+                UpdateVisibilityLog();
                 UpdateScreen();
                 GraphicsOverrides.Enforce();
                 FramePacing.Enforce();
@@ -227,6 +234,7 @@ namespace TowerSim3VR
             ReleaseInput();
             DestroyEyes();
             DestroyScreen();
+            binocularMask = null; // destroyed with the body
             if (body != null) Destroy(body.gameObject); // the head, eyes, lasers and screen are under it
             body = head = null;
             GraphicsOverrides.Restore();
@@ -399,10 +407,11 @@ namespace TowerSim3VR
                 var baseRotation = Plugin.YawOnly.Value ? Quaternion.Euler(0f, t.eulerAngles.y, 0f) : t.rotation;
                 body.SetPositionAndRotation(t.position, baseRotation);
                 head.localPosition = localPosition;
-                head.localRotation = localRotation;
+                head.localRotation = StabiliseHead(localRotation);
                 LevelMovement.HeadYaw = head.eulerAngles.y;
                 LevelMovement.Active = true;
                 UpdateHands();
+                CheckScreenshotRequest();
             }
             catch (Exception ex)
             {
@@ -426,6 +435,8 @@ namespace TowerSim3VR
                 yield return wait;
                 if (!running) continue;
                 CaptureScreen();
+                DrawOverlays();
+                SaveEyeScreenshot();
                 try
                 {
                     var bounds = Plugin.FlipEyes.Value

@@ -30,6 +30,7 @@
 
     <Reference Include="UnityEngine.PhysicsModule"><HintPath>..\..\lib\game\UnityEngine.PhysicsModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.ScreenCaptureModule"><HintPath>..\..\lib\game\UnityEngine.ScreenCaptureModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.ImageConversionModule"><HintPath>..\..\lib\game\UnityEngine.ImageConversionModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="UnityEngine.VideoModule"><HintPath>..\..\lib\game\UnityEngine.VideoModule.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Unity.InputSystem"><HintPath>..\..\lib\game\Unity.InputSystem.dll</HintPath><Private>false</Private></Reference>
     <Reference Include="Assembly-CSharp"><HintPath>..\..\lib\game\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>

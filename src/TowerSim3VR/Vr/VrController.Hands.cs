@@ -376,15 +376,13 @@ namespace TowerSim3VR
         {
             if (laserIdle == null)
             {
-                // The whole laser draws over everything (see DrawOnTop). The beam ends at the first thing it
-                // meets, so nothing solid lies between the hand and its end anyway. (Queue 4000 and up is not
-                // drawn by HDRP at all.)
-                laserIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 0.6f), 3100);
+                // Drawn into the eye images over everything (VrController.Overlay.cs). The beam ends at the first
+                // thing it meets, so nothing solid lies between the hand and its end anyway.
+                laserIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 0.6f), 3100, "laserIdle");
                 laserActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), 3100);
                 dotIdle = MakeUnlitColor(new Color(0.35f, 0.85f, 1f, 1f), 3101);
-                LogSortingOnce();
                 dotActive = MakeUnlitColor(new Color(0.3f, 1f, 0.35f, 1f), 3101);
-                handBall = MakeUnlitColor(new Color(0.9f, 0.95f, 1f, 1f), 3101);
+                handBall = MakeUnlitColor(new Color(0.9f, 0.95f, 1f, 1f), 3101, "handBall");
             }
             if (leftLaser == null) leftLaser = MakeLaser();
             if (rightLaser == null) rightLaser = MakeLaser();
@@ -395,7 +393,7 @@ namespace TowerSim3VR
             var root = new GameObject("TowerSim3VR_Laser");
             root.transform.SetParent(body, false);
             root.layer = vrLayer;
-            foreach (var (name, type) in new[] { ("Beam", PrimitiveType.Cube), ("Dot", PrimitiveType.Sphere) })
+            foreach (var (name, type, order) in new[] { ("Beam", PrimitiveType.Cube, 1), ("Dot", PrimitiveType.Sphere, 2) })
             {
                 var part = GameObject.CreatePrimitive(type);
                 part.name = name;
@@ -406,34 +404,9 @@ namespace TowerSim3VR
                 renderer.sharedMaterial = laserIdle;
                 renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 renderer.receiveShadows = false;
-                DrawOnTop(renderer, 1);
+                RegisterOverlay(renderer, order);
             }
             return root;
-        }
-
-        // The game's desk displays (world-space canvases) drew over the lasers and the menu screen even in
-        // front of them: see-through objects are drawn by sorting layer first, before render queue and
-        // distance, and the canvases are on a later layer than Default. So the mod's objects go on the last
-        // sorting layer with the highest order in it; the materials don't test depth.
-        // Diagnostics for the drawing order: the sorting layers, and how the desk canvases are set up.
-        void LogSortingOnce()
-        {
-            var names = new List<string>();
-            foreach (var layer in SortingLayer.layers) names.Add($"{layer.name}({layer.value})");
-            Log.LogInfo($"Sorting layers: {string.Join(", ", names)}");
-            foreach (var canvas in FindObjectsOfType<Canvas>())
-            {
-                if (!canvas.isRootCanvas || canvas.renderMode != RenderMode.WorldSpace) continue;
-                Log.LogInfo($"World canvas '{canvas.name}': layer {canvas.sortingLayerName}, order {canvas.sortingOrder}, "
-                    + $"override {canvas.overrideSorting}, camera {(canvas.worldCamera ? canvas.worldCamera.name : "none")}");
-            }
-        }
-
-        static void DrawOnTop(Renderer renderer, int order)
-        {
-            var layers = SortingLayer.layers;
-            if (layers.Length > 0) renderer.sortingLayerID = layers[layers.Length - 1].id;
-            renderer.sortingOrder = short.MaxValue - 10 + order;
         }
 
         void ShowLaser(GameObject laser, Hand hand, bool active, float length)
@@ -444,13 +417,16 @@ namespace TowerSim3VR
             var beam = laser.transform.GetChild(0);
             var dot = laser.transform.GetChild(1);
 
-            // Only the active hand has a laser; the other is a small ball at the controller, to show where it is.
-            if (beam.gameObject.activeSelf != active) beam.gameObject.SetActive(active);
+            // Only the active hand has a laser; the other shows a short stub, to show where it is and which way it points.
+            // (A lone ball at the hand never showed up in the headset, although it was placed and active; the beam does.)
             if (!active)
             {
-                // A little in front of the pointer's origin, white so it isn't mistaken for a laser dot.
-                dot.localPosition = new Vector3(0f, 0f, 0.05f);
-                dot.localScale = Vector3.one * 0.04f;
+                const float stub = 0.08f;
+                beam.localPosition = new Vector3(0f, 0f, stub * 0.5f);
+                beam.localScale = new Vector3(0.006f, 0.006f, stub);
+                beam.GetComponent<MeshRenderer>().sharedMaterial = handBall;
+                dot.localPosition = new Vector3(0f, 0f, stub);
+                dot.localScale = Vector3.one * 0.015f;
                 dot.GetComponent<MeshRenderer>().sharedMaterial = handBall;
                 if (!loggedBall && head != null)
                 {
@@ -470,9 +446,9 @@ namespace TowerSim3VR
         }
 
         // UI/Default is always in a build and HDRP draws it unlit and without exposure, like world-space UI.
-        static Material MakeUnlitColor(Color color, int renderQueue)
+        static Material MakeUnlitColor(Color color, int renderQueue, string name = "TowerSim3VR")
         {
-            var material = new Material(Shader.Find("UI/Default")) { color = color, renderQueue = renderQueue };
+            var material = new Material(Shader.Find("UI/Default")) { color = color, renderQueue = renderQueue, name = name };
             material.SetInt("unity_GUIZTestMode", (int)UnityEngine.Rendering.CompareFunction.Always);
             return material;
         }

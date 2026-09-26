@@ -20,6 +20,7 @@ namespace TowerSim3VR
         internal static ConfigEntry<float> RenderScale;
         internal static ConfigEntry<bool> FlipEyes;
         internal static ConfigEntry<bool> MonitorShowsEye;
+        internal static ConfigEntry<bool> OverlayFlip;
         internal static ConfigEntry<HDAdditionalCameraData.AntialiasingMode> EyeAntialiasing;
         internal static ConfigEntry<float> MoveSpeed;
         internal static ConfigEntry<float> FastMoveMultiplier;
@@ -29,6 +30,9 @@ namespace TowerSim3VR
         internal static ConfigEntry<KeyCode> KeyRightStick;
         internal static ConfigEntry<float> MaxZoom;
         internal static ConfigEntry<float> ZoomSpeed;
+        internal static ConfigEntry<float> BinocularSmoothing;
+        internal static ConfigEntry<bool> BinocularFrame;
+        internal static ConfigEntry<float> BinocularCircleDegrees;
         internal static ConfigEntry<KeyCode> KeyB;
         internal static ConfigEntry<float> ScreenDistance;
         internal static ConfigEntry<float> ScreenDown;
@@ -51,6 +55,7 @@ namespace TowerSim3VR
                 "Flip the eye images vertically when sending them to SteamVR (Ctrl+Shift+F toggles).");
             EyeAntialiasing = Config.Bind("Rendering", "EyeAntialiasing", HDAdditionalCameraData.AntialiasingMode.SubpixelMorphologicalAntiAliasing,
                 "Antialiasing for the eye cameras. TemporalAntialiasing blurs when you move your head. Applied when VR starts.");
+            OverlayFlip = Config.Bind("Rendering", "OverlayFlip", false, "Flip the lasers, menu screen and binocular frame vertically in the eye images (Ctrl+Shift+O toggles), if they appear mirrored top to bottom.");
             MonitorShowsEye = Config.Bind("Rendering", "MonitorShowsEye", true,
                 "While VR runs, the monitor shows the left eye instead of the game rendering its camera a third time (faster).");
 
@@ -63,6 +68,9 @@ namespace TowerSim3VR
             KeyRightStick = Config.Bind("Controllers", "KeyRightStick", KeyCode.F1, "Key held while the right stick is clicked in (F1 = back to the desk view).");
             MaxZoom = Config.Bind("Controllers", "MaxZoom", 8f, "Largest binocular zoom (right stick while Y is held), times magnification.");
             ZoomSpeed = Config.Bind("Controllers", "ZoomSpeed", 1.5f, "How fast the binocular zoom changes at full stick, doublings per second.");
+            BinocularSmoothing = Config.Bind("Binoculars", "Smoothing", 0.7f, "How much the zoomed view is steadied against head tremor, 0 (off) to 1 (strongest). Stronger with more zoom.");
+            BinocularFrame = Config.Bind("Binoculars", "Frame", true, "Show a binocular frame (two circles) while zoomed.");
+            BinocularCircleDegrees = Config.Bind("Binoculars", "CircleSize", 24f, "Radius of each circle of the frame, degrees of view. Applied when the frame is first shown.");
             KeyB = Config.Bind("Controllers", "KeyB", KeyCode.Escape, "Key held while B is held (Escape opens the game's menu).");
             ScreenDistance = Config.Bind("VirtualScreen", "Distance", 1.1f, "How far in front of you the 2D screen appears, metres.");
             ScreenDown = Config.Bind("VirtualScreen", "Down", 0.15f, "How far below eye level its centre is, metres.");
