@@ -4,11 +4,11 @@ using UnityEngine.Rendering;
 
 namespace TowerSim3VR
 {
-    // The mod's own objects (lasers, the inactive hand's stub, the virtual screen, the binocular frame) are not drawn
-    // by HDRP with the scene: however their sorting was set, the game's desk displays and parts of the scene still
-    // drew over them. Instead they are drawn straight into each eye's image at the end of the frame, after HDRP has
-    // finished and before the images go to SteamVR, with that eye camera's view and projection. The eye image's
-    // depth is cleared first, so they are always on top; the lasers end at what they hit anyway.
+    // The mod's own objects (aircraft labels, lasers, the inactive hand's stub, the virtual screen, the binocular
+    // frame) are not drawn by HDRP with the scene: however their sorting was set, the game's desk displays and parts
+    // of the scene still drew over them. Instead they are drawn straight into each eye's image at the end of the
+    // frame, after HDRP has finished and before the images go to SteamVR, with that eye camera's view and projection.
+    // The eye image's depth is cleared first, so they are always on top; the lasers end at what they hit anyway.
     //
     // The GameObjects stay (their transforms place everything); their MeshRenderers are disabled so the scene
     // cameras skip them, and are drawn here in order of sortingOrder.
@@ -25,6 +25,7 @@ namespace TowerSim3VR
             renderer.shadowCastingMode = ShadowCastingMode.Off;
             renderer.receiveShadows = false;
             renderer.sortingOrder = order;
+            overlayRenderers.RemoveAll(r => r == null); // destroyed with the body on leaving VR; can't be sorted
             overlayRenderers.Add(renderer);
             overlayRenderers.Sort(CompareOrder);
         }
@@ -36,7 +37,8 @@ namespace TowerSim3VR
             {
                 if (overlayRenderers[i] == null) overlayRenderers.RemoveAt(i); // destroyed with the body on leaving VR
             }
-            if (leftEye == null || rightEye == null || overlayRenderers.Count == 0) return;
+            if (leftEye == null || rightEye == null) return;
+            BuildLabels();
             if (overlayCommands == null) overlayCommands = new CommandBuffer { name = "TowerSim3VR overlays" };
             var cmd = overlayCommands;
             cmd.Clear();
@@ -57,6 +59,7 @@ namespace TowerSim3VR
             unzoomed.m00 /= zoom;
             unzoomed.m11 /= zoom;
             cmd.SetViewProjectionMatrices(eye.worldToCameraMatrix, projection);
+            DrawLabels(cmd); // under everything else
             foreach (var renderer in overlayRenderers)
             {
                 if (!renderer.gameObject.activeInHierarchy || renderer.sharedMaterial == null) continue;

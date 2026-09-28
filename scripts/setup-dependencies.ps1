@@ -25,7 +25,7 @@ New-Item -ItemType Directory -Force -Path "$root\lib\bepinex" | Out-Null
 $gameDlls = @(
     "Assembly-CSharp.dll",
     "UnityEngine.dll", "UnityEngine.CoreModule.dll", "UnityEngine.InputLegacyModule.dll", "UnityEngine.PhysicsModule.dll",
-    "UnityEngine.ScreenCaptureModule.dll", "UnityEngine.UI.dll", "UnityEngine.UIModule.dll", "UnityEngine.VideoModule.dll",
+    "UnityEngine.ScreenCaptureModule.dll", "UnityEngine.TextRenderingModule.dll", "UnityEngine.UI.dll", "UnityEngine.UIModule.dll", "UnityEngine.VideoModule.dll",
     "Unity.InputSystem.dll", "Unity.RenderPipelines.Core.Runtime.dll", "Unity.RenderPipelines.HighDefinition.Runtime.dll"
 )
 foreach ($dll in $gameDlls) {

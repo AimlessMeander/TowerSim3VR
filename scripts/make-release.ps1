@@ -43,6 +43,7 @@ foreach ($f in "TowerSim3VR.dll", "openvr_api.dll", "towersim3vr_actions.json", 
 }
 
 Copy-Item "$root\release\INSTALL.txt" $out
+Copy-Item "$root\CHANGELOG.md" "$out\CHANGELOG.txt"
 Copy-Item "$root\LICENSE" "$out\BepInEx\plugins\TowerSim3VR\LICENSE.txt"
 
 # Safety check: nothing from the game itself may be in the package

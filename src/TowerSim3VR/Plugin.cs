@@ -9,7 +9,7 @@ namespace TowerSim3VR
 {
     public enum VrMode { Auto, Always, Never }
 
-    [BepInPlugin("com.mjh.towersim3vr", "TowerSim3VR", "0.9.0")]
+    [BepInPlugin("com.mjh.towersim3vr", "TowerSim3VR", "0.10.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
@@ -32,6 +32,8 @@ namespace TowerSim3VR
         internal static ConfigEntry<float> BinocularSmoothing;
         internal static ConfigEntry<bool> BinocularFrame;
         internal static ConfigEntry<float> BinocularCircleDegrees;
+        internal static ConfigEntry<bool> Labels;
+        internal static ConfigEntry<float> LabelSize;
         internal static ConfigEntry<float> ScreenDistance;
         internal static ConfigEntry<float> ScreenDown;
         internal static ConfigEntry<float> ScreenHeight;
@@ -74,6 +76,11 @@ namespace TowerSim3VR
             BinocularFrame = Config.Bind("Binoculars", "Frame", true, "Show a binocular frame (two circles) while Y is held.");
             BinocularCircleDegrees = Config.Bind("Binoculars", "CircleSize", 24f,
                 "Radius of each circle of the frame, degrees of view. Applied when the frame is first shown.");
+
+            Labels = Config.Bind("Labels", "Enabled", true,
+                "Show the aircraft labels (call sign and runway, as on the monitor) above the aircraft, facing you.");
+            LabelSize = Config.Bind("Labels", "Size", 1f,
+                "Height of the label text, degrees of view (they keep this size at any distance). 1 is about the monitor's size.");
 
             ScreenDistance = Config.Bind("VirtualScreen", "Distance", 1.1f, "How far in front of you the 2D screen appears, metres.");
             ScreenDown = Config.Bind("VirtualScreen", "Down", 0.15f, "How far below eye level its centre is, metres.");

@@ -19,12 +19,15 @@ at 90 Hz). Please report problems as GitHub issues, with `BepInEx\LogOutput.log`
 - Stick movement over the whole airport, smooth turning, push to talk for speech recognition.
 - Binoculars: hold Y to look at the selected aircraft and zoom with the right stick, with a steadied view and a
   binocular frame.
+- Aircraft labels (call sign and runway, as on the monitor) above the aircraft, facing you, at a readable size at
+  any distance. Labels that would overlap are stacked. Can be switched off or resized in the settings.
 - Fixes a game bug (present without the mod too) that could leave the radio voice silent for a whole session.
 
 ## Install
 
 Download the zip from [Releases](../../releases), then follow `INSTALL.txt` inside it: copy everything into the
 game folder (next to `Tower! Simulator 3.exe`). The zip contains the mod and the BepInEx loader, no game files.
+To update, copy the new zip's contents over the old ones. What changed: [CHANGELOG.md](CHANGELOG.md).
 
 ## Controls (Quest Touch; remappable in SteamVR's controller bindings)
 
@@ -78,9 +81,13 @@ pass `-GameDir` / `-p:GameDir=` for another location. Logs: `<game>/BepInEx/LogO
   `Input`). Lasers stop on world-space canvases (the desk displays have no colliders). While Unity's UI event
   system runs, the game camera is put on the laser (`GraphicRaycaster` drops pointers outside its view), and kept
   where it was at the press while dragging, so the pointer moves.
-- **The mod's own objects** (`Vr/VrController.Overlay.cs`): lasers, the hand marker, the virtual screen and the
+- **The mod's own objects** (`Vr/VrController.Overlay.cs`): labels, lasers, the hand marker, the virtual screen and the
   binocular frame are drawn with a command buffer straight into each eye image after HDRP has finished (HDRP drew
   the desk displays over them whatever their sorting).
+- **Aircraft labels** (`Vr/VrController.Labels.cs`): the game's labels (`VTag`) are on a 2D overlay placed with
+  the game camera, so the headset can't show them. The mod builds its own billboards with the same rules, colours and
+  font, drawn with the other overlays. The text is generated at the pixel size it covers in the eye image (the font
+  texture has no mipmaps), and laid out again whenever the game rebuilds the shared font texture.
 - **Virtual screen** (`Vr/VrController.Screen.cs`): `ScreenCapture` of the monitor onto a quad, shown while a menu
   or pop-up is open (or with A); the monitor draws black behind the 2D interface meanwhile.
 - **Binoculars** (`Vr/VrController.Binoculars.cs`): the eye projections are magnified, the head rotation is

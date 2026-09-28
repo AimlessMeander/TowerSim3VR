@@ -47,6 +47,7 @@ CONTROLS (Quest / Touch layout)
  pulled the trigger on has the laser; the other hand shows a short white marker.
  Point at the radar screens, the strip board, the comms panel and aircraft, just as you would click them
  with the mouse. Menus and pop-ups appear on a floating screen in front of you.
+ Aircraft have labels above them (call sign and runway), like the ones on the monitor.
 
    Trigger .............. Click. Hold it and move the laser to drag (for example strips on the strip board).
    Left stick ........... Move, in the direction you are looking. Click it in for fast travel.
@@ -86,6 +87,8 @@ SETTINGS
    LaserPitch ........... Tilts the lasers up or down if they don't feel lined up with your hand.
    [Binoculars] ......... MaxZoom, ZoomSpeed, Smoothing (how much a zoomed view is steadied),
                           Frame (the binocular frame on or off) and CircleSize.
+   [Labels] ............. Enabled: the aircraft labels on or off (default on).
+                          Size: how big their text is, in degrees of view (default 1; try 0.7 or 1.5).
    [VirtualScreen] ...... Distance, Down and Height of the floating screen for menus.
 
 KNOWN LIMITS
