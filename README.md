@@ -75,9 +75,15 @@ pass `-GameDir` / `-p:GameDir=` for another location. Logs: `<game>/BepInEx/LogO
 - **Performance**: the monitor shows the left eye instead of the game rendering its camera a third time (HDRP
   `customRender`, `Vr/MonitorMirror.cs`); FSR3, the game's frame limiter and vsync are lifted while in VR
   (`GraphicsOverrides.cs`, `Vr/FramePacing.cs`); motion blur is off on the eyes, and so (`ReduceEffects`,
-  `Vr/VrController.Performance.cs`) are screen-space global illumination and motion vectors: about 2 of 11 ms per
-  frame on an RTX 4090, with no visible difference. The GPU time per frame is logged once a minute. Measured and
-  rejected: upscaling (FSR 1) from a lower eye resolution looked poor; the volumetric clouds cost under 1 ms.
+  `Vr/VrController.Performance.cs`) are screen-space global illumination, ambient occlusion, subsurface scattering
+  and motion vectors: 11 ms per frame down to about 8 on an RTX 4090, and cleaner in the headset. Measured and not
+  worth it: shadow distance, clouds and the separate post-processing effects (under 1 ms each), and upscaling from a
+  lower eye resolution (looked poor). Pitfall: calling `IVRCompositor.GetFrameTiming` every frame made SteamVR (with
+  Steam Link) stop returning from `WaitGetPoses` after a few dozen frames - the game froze as VR started.
+- **Brightness** (`Vr/VrController.Exposure.cs`): the headset's wide view takes in much of the dark tower cab, so
+  the game's automatic exposure (plus its own +1.5 to +2.1 EV) washed out the view outside. After HDRP blends an eye
+  camera's volumes, `Brightness` (default -1 EV) is added to that eye's exposure compensation, on top of whatever the
+  game's weather sets.
 - **Pointing** (`Vr/VrController.Hands.cs`, `Vr/VrKeys.cs`): the game does every 3D click from
   `Camera.main.ScreenPointToRay(Input.mousePosition)`, so the laser's target, projected into the game camera, is
   reported as the mouse position, and controller buttons as keys and mouse buttons (Harmony patches on the legacy

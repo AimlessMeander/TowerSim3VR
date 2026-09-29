@@ -2,9 +2,11 @@
 
 ## Unreleased
 
-- **Faster:** screen-space global illumination and motion vectors are left out in the headset (`ReduceEffects`,
-  on by default): about 20% less GPU time per frame, with no visible difference.
-- The GPU time per frame is written to the log once a minute, to help with performance reports.
+- **Faster and cleaner:** some costly screen-space effects are left out in the headset (global illumination,
+  ambient occlusion, subsurface scattering, motion vectors; `ReduceEffects`, on by default): about 25% less GPU
+  time per frame (11 ms down to 8 on an RTX 4090), and they looked better off in VR.
+- **Less washed out:** the headset picture is darker than the game's own brightness, which looked washed out in VR
+  (`Brightness`, default -1; Ctrl+Shift+Up/Down adjusts it while playing).
 
 ## 0.10.0
 

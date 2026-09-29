@@ -146,6 +146,8 @@ namespace TowerSim3VR
                 UpdateZoom();
                 UpdateBinocularMask();
                 UpdateScreen();
+                UpdateTransparentsKey();
+                UpdateBrightness();
                 GraphicsOverrides.Enforce();
                 FramePacing.Enforce();
             }
@@ -182,7 +184,6 @@ namespace TowerSim3VR
             head = new GameObject("TowerSim3VR_Head").transform;
             head.SetParent(body, false);
             InitInput();
-            RestartTiming();
 
             running = true;
             needsRecenter = true;
@@ -214,6 +215,8 @@ namespace TowerSim3VR
             ReleaseInput();
             DestroyEyes();
             DestroyScreen();
+            transparentsOff = false;
+            StopBrightness();
             binocularMask = null; // destroyed with the body
             if (body != null) Destroy(body.gameObject); // the head, eyes, lasers and screen are under it
             body = head = null;
@@ -428,7 +431,6 @@ namespace TowerSim3VR
                         lastSubmitError = error;
                         if (error != EVRCompositorError.None) Log.LogWarning($"SteamVR did not take a frame: {error}");
                     }
-                    SampleTiming();
                 }
                 catch (Exception ex)
                 {
