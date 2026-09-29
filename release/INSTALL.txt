@@ -81,6 +81,8 @@ SETTINGS
    RenderScale .......... Picture sharpness (default 1.0). Lower it (0.8 - 0.9) if the picture
                           stutters, raise it if your graphics card can take it.
    EyeAntialiasing ...... Edge smoothing in the headset. TemporalAntialiasing blurs when you move.
+   ReduceEffects ........ Leaves out two costly lighting effects in the headset (default true): about 20%
+                          less work for the graphics card, with no visible difference.
    MoveSpeed ............ Walking speed with the left stick, metres per second (default 2).
    FastMoveMultiplier ... How much faster with the left stick clicked in (default 30).
    TurnSpeed ............ How fast the right stick turns you (degrees per second, default 45).
@@ -102,6 +104,10 @@ KNOWN LIMITS
 
 IF SOMETHING GOES WRONG
 -----------------------
+ * Stutter: lower RenderScale, or set the headset to 72 or 80 Hz in SteamVR's settings (the frame rate
+   SteamVR asks for). The log reports once a minute how long the graphics card takes per frame.
+ * Blurry picture with Steam Link or other streaming: the stream's compression, not the game, usually
+   limits sharpness. Raise the streaming quality/bitrate in the streaming app's settings.
  * No VR: make sure SteamVR was running BEFORE the airport loaded, or set VrMode to Always.
  * The mod does not seem to load at all: check that "winhttp.dll" is next to "Tower! Simulator 3.exe"
    and that the folder BepInEx\plugins\TowerSim3VR exists. Some antivirus programs wrongly flag

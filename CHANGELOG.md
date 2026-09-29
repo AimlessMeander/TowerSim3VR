@@ -1,5 +1,11 @@
 # Changes
 
+## Unreleased
+
+- **Faster:** screen-space global illumination and motion vectors are left out in the headset (`ReduceEffects`,
+  on by default): about 20% less GPU time per frame, with no visible difference.
+- The GPU time per frame is written to the log once a minute, to help with performance reports.
+
 ## 0.10.0
 
 - **New: aircraft labels in VR.** The call sign and runway labels you see on the monitor now float above the

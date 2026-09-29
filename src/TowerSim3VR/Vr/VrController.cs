@@ -182,6 +182,7 @@ namespace TowerSim3VR
             head = new GameObject("TowerSim3VR_Head").transform;
             head.SetParent(body, false);
             InitInput();
+            RestartTiming();
 
             running = true;
             needsRecenter = true;
@@ -298,6 +299,7 @@ namespace TowerSim3VR
             data.renderingPathCustomFrameSettingsOverrideMask.mask[(uint)FrameSettingsField.MotionBlur] = true;
             data.renderingPathCustomFrameSettings.SetEnabled(FrameSettingsField.MotionBlur, false);
             data.antialiasing = Plugin.EyeAntialiasing.Value;
+            ApplyPerformance(data);
 
             // CopyFrom also copies the transform, so the eye offset goes on afterwards.
             system.GetEyeToHeadTransform(eye).ToUnity(out var eyePosition, out var eyeRotation);
@@ -426,6 +428,7 @@ namespace TowerSim3VR
                         lastSubmitError = error;
                         if (error != EVRCompositorError.None) Log.LogWarning($"SteamVR did not take a frame: {error}");
                     }
+                    SampleTiming();
                 }
                 catch (Exception ex)
                 {

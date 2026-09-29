@@ -74,7 +74,10 @@ pass `-GameDir` / `-p:GameDir=` for another location. Logs: `<game>/BepInEx/LogO
   the game camera itself is never moved.
 - **Performance**: the monitor shows the left eye instead of the game rendering its camera a third time (HDRP
   `customRender`, `Vr/MonitorMirror.cs`); FSR3, the game's frame limiter and vsync are lifted while in VR
-  (`GraphicsOverrides.cs`, `Vr/FramePacing.cs`); motion blur is off on the eyes.
+  (`GraphicsOverrides.cs`, `Vr/FramePacing.cs`); motion blur is off on the eyes, and so (`ReduceEffects`,
+  `Vr/VrController.Performance.cs`) are screen-space global illumination and motion vectors: about 2 of 11 ms per
+  frame on an RTX 4090, with no visible difference. The GPU time per frame is logged once a minute. Measured and
+  rejected: upscaling (FSR 1) from a lower eye resolution looked poor; the volumetric clouds cost under 1 ms.
 - **Pointing** (`Vr/VrController.Hands.cs`, `Vr/VrKeys.cs`): the game does every 3D click from
   `Camera.main.ScreenPointToRay(Input.mousePosition)`, so the laser's target, projected into the game camera, is
   reported as the mouse position, and controller buttons as keys and mouse buttons (Harmony patches on the legacy
