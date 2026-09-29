@@ -146,7 +146,6 @@ namespace TowerSim3VR
                 UpdateZoom();
                 UpdateBinocularMask();
                 UpdateScreen();
-                UpdateTransparentsKey();
                 UpdateBrightness();
                 GraphicsOverrides.Enforce();
                 FramePacing.Enforce();
@@ -215,7 +214,6 @@ namespace TowerSim3VR
             ReleaseInput();
             DestroyEyes();
             DestroyScreen();
-            transparentsOff = false;
             StopBrightness();
             binocularMask = null; // destroyed with the body
             if (body != null) Destroy(body.gameObject); // the head, eyes, lasers and screen are under it

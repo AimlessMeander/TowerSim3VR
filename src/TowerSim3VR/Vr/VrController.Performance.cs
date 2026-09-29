@@ -8,7 +8,8 @@ namespace TowerSim3VR
     // (unused with SMAA and motion blur off). Measured on an RTX 4090 at 90 Hz: 11 ms per frame down to about 8, and
     // it looked better in the headset (screen-space effects computed separately per eye don't quite match).
     // Measured and not worth it: volumetric clouds and shadow distance (well under 1 ms each), the separate
-    // post-processing effects (each under 0.5 ms), and rendering the eyes at a lower resolution with upscaling
+    // post-processing effects (each under 0.5 ms), the tower's layered window glass (no measurable difference; the
+    // transparent cost, about 2 ms, is mostly the desk displays), and rendering the eyes at a lower resolution with upscaling
     // (looked poor: the eyes are already at about the panel's resolution).
     // Don't call IVRCompositor.GetFrameTiming every frame: with Steam Link it made SteamVR stop handing out frames
     // (WaitGetPoses never returned) after a couple of dozen frames.

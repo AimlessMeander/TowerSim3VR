@@ -43,7 +43,7 @@ To update, copy the new zip's contents over the old ones. What changed: [CHANGEL
 | Right stick click | Desk view (F1) |
 | Both triggers, 2 s | Recentre (or the End key) |
 
-Keyboard: Ctrl+Shift+V switches VR off and on. Settings: `BepInEx\config\com.mjh.towersim3vr.cfg`
+Keyboard: Ctrl+Shift+V switches VR off and on; Ctrl+Shift+Up/Down makes the headset brighter or darker. Settings: `BepInEx\config\com.mjh.towersim3vr.cfg`
 (see `INSTALL.txt`).
 
 Known limits: the tower cab and its monitors disappear when you move outside the tower (the game hides the

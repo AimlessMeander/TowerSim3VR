@@ -67,6 +67,7 @@ CONTROLS (Quest / Touch layout)
  Tower! Simulator 3 > Edit binding). Other controllers should work too; set their buttons up there.
 
  Keyboard: Ctrl+Shift+V switches VR off and on while playing.
+           Ctrl+Shift+Up / Down makes the picture in the headset brighter or darker.
 
 SETTINGS
 --------

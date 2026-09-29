@@ -1,6 +1,6 @@
 # Changes
 
-## Unreleased
+## 0.11.0
 
 - **Faster and cleaner:** some costly screen-space effects are left out in the headset (global illumination,
   ambient occlusion, subsurface scattering, motion vectors; `ReduceEffects`, on by default): about 25% less GPU

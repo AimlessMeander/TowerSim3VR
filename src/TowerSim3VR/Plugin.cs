@@ -9,7 +9,7 @@ namespace TowerSim3VR
 {
     public enum VrMode { Auto, Always, Never }
 
-    [BepInPlugin("com.mjh.towersim3vr", "TowerSim3VR", "0.10.0")]
+    [BepInPlugin("com.mjh.towersim3vr", "TowerSim3VR", "0.11.0")]
     public class Plugin : BaseUnityPlugin
     {
         internal static ManualLogSource Log;
